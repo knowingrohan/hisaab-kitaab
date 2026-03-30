@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary-fixed-variant": "#00429b",
+              "on-surface": "#1a1c1c",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#1a1c1c",
+              "surface-container-low": "#f3f3f3",
+              "secondary-fixed": "#e2e2e2",
+              "on-tertiary-fixed": "#2a1700",
+              "inverse-surface": "#2f3131",
+              "inverse-primary": "#b0c6ff",
+              "surface-dim": "#dadada",
+              "error-container": "#ffdad6",
+              "secondary-container": "#dcdddd",
+              "error": "#ba1a1a",
+              "primary-container": "#1a4faa",
+              "inverse-on-surface": "#f1f1f1",
+              "surface-container": "#eeeeee",
+              "tertiary-fixed-dim": "#ffb960",
+              "on-secondary": "#ffffff",
+              "on-secondary-fixed-variant": "#454747",
+              "tertiary-container": "#764900",
+              "surface-tint": "#2a5ab6",
+              "outline-variant": "#c3c6d4",
+              "on-background": "#1a1c1c",
+              "primary": "#003886",
+              "outline": "#737783",
+              "surface-bright": "#f9f9f9",
+              "on-error-container": "#93000a",
+              "surface": "#f9f9f9",
+              "tertiary": "#573500",
+              "primary-fixed": "#d9e2ff",
+              "on-tertiary-container": "#ffba63",
+              "secondary": "#5d5f5f",
+              "background": "#f9f9f9",
+              "surface-container-highest": "#e2e2e2",
+              "on-tertiary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#001945",
+              "on-primary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "on-surface-variant": "#434652",
+              "surface-variant": "#e2e2e2",
+              "on-primary-container": "#b2c7ff",
+              "surface-container-high": "#e8e8e8",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#b0c6ff",
+              "secondary-fixed-dim": "#c6c6c7",
+              "tertiary-fixed": "#ffddb8",
+              "on-secondary-container": "#5f6161"
+            },
+            fontFamily: {
+              "headline": ["Be Vietnam Pro"],
+              "body": ["Be Vietnam Pro"],
+              "label": ["Be Vietnam Pro"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="docked full-width top-0 bg-slate-50 flex justify-between items-center w-full px-6 py-4 z-40">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-blue-900" data-icon="menu">menu</span>
+<h1 class="font-['Be_Vietnam_Pro'] text-lg font-bold tracking-tight text-blue-900">Hisaab Kitaab</h1>
+</div>
+<div class="text-blue-900 font-bold">₹1,240 Pending</div>
+</header>
+<div class="bg-slate-100 h-px w-full"></div>
+<!-- Main Content Background (Mocking Dashboard underneath) -->
+<main class="flex-1 p-6 space-y-8 bg-surface-container-low pb-32">
+<div class="opacity-30">
+<div class="mb-8">
+<p class="text-label-md text-on-surface-variant uppercase tracking-widest font-bold">Total Balance</p>
+<h2 class="text-[2.75rem] font-black text-primary leading-tight">₹1,240</h2>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container-lowest p-5 rounded-xl flex justify-between items-center">
+<div>
+<h3 class="text-lg font-bold">Suresh Mehra</h3>
+<p class="text-sm text-on-surface-variant">3 Items • 2 days ago</p>
+</div>
+<div class="text-xl font-bold">₹30</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl flex justify-between items-center">
+<div>
+<h3 class="text-lg font-bold">Anita Desai</h3>
+<p class="text-sm text-on-surface-variant">8 Items • Today</p>
+</div>
+<div class="text-xl font-bold text-error">₹245</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Scrim Overlay -->
+<div class="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-50"></div>
+<!-- Bottom Drawer: Add Items Entry Sheet -->
+<div class="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-[2.5rem] shadow-2xl overflow-hidden max-h-[795px] flex flex-col">
+<!-- Handle -->
+<div class="w-full flex justify-center pt-3 pb-1">
+<div class="w-12 h-1.5 bg-outline-variant/30 rounded-full"></div>
+</div>
+<!-- Header -->
+<div class="px-6 py-4 flex justify-between items-start">
+<div class="flex-1">
+<h2 class="text-xl font-black text-on-surface leading-tight">Add Items - Ramesh Sharma (B-204)</h2>
+<button class="mt-1 flex items-center gap-2 text-primary font-medium group">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="text-sm">Today, 24 Oct</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+<button class="bg-surface-container-high p-2 rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="close">close</span>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-6 pb-40">
+<!-- Items Grid -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Shirt -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="checkroom">checkroom</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Shirt</p>
+<p class="text-sm text-on-surface-variant">₹10 / unit</p>
+</div>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 gap-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-lg">2</span>
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Pant -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="apparel">apparel</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Pant</p>
+<p class="text-sm text-on-surface-variant">₹10 / unit</p>
+</div>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 gap-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-lg">1</span>
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Saree -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="dry_cleaning">dry_cleaning</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Saree</p>
+<p class="text-sm text-on-surface-variant">₹20 / unit</p>
+</div>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 gap-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-lg">1</span>
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Suit/Kurta -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center opacity-60">
+<span class="material-symbols-outlined text-secondary" data-icon="styler">styler</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Suit/Kurta</p>
+<p class="text-sm text-on-surface-variant">₹15 / unit</p>
+</div>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 gap-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-outline cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-lg opacity-40">0</span>
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Jacket -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center opacity-60">
+<span class="material-symbols-outlined text-secondary" data-icon="coat">apparel</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Jacket</p>
+<p class="text-sm text-on-surface-variant">₹25 / unit</p>
+</div>
+</div>
+<div class="flex items-center bg-surface-container rounded-full p-1 gap-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-outline cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="w-6 text-center font-bold text-lg opacity-40">0</span>
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-sm active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Other Entry -->
+<div class="p-4 bg-surface-container-low/50 border border-dashed border-outline-variant rounded-2xl space-y-3">
+<p class="text-sm font-bold text-on-surface-variant">OTHER ITEM</p>
+<div class="flex gap-3">
+<input class="flex-1 bg-surface rounded-xl px-4 py-3 text-sm border-none focus:ring-2 focus:ring-primary shadow-sm" placeholder="Item name (e.g. Bed Sheet)" type="text"/>
+<div class="relative w-32">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">₹</span>
+<input class="w-full bg-surface rounded-xl pl-8 pr-4 py-3 text-sm border-none focus:ring-2 focus:ring-primary shadow-sm" placeholder="0" type="number"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Action Area -->
+<div class="absolute bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t border-outline-variant/10">
+<div class="flex items-center justify-between mb-4">
+<span class="text-on-surface-variant font-medium">Total:</span>
+<span class="text-3xl font-black text-primary">₹50</span>
+</div>
+<button class="w-full bg-tertiary-fixed text-on-tertiary-fixed font-black py-5 rounded-2xl flex items-center justify-center gap-3 shadow-[0_12px_24px_rgba(255,185,96,0.25)] active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined" data-icon="save">save</span>
+<span>Save Entry</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Bar (Hidden on this view as the sheet covers it, but kept for context as per instructions) -->
+<nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 pb-6 pt-3 bg-white/70 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,56,134,0.08)] rounded-t-3xl">
+<div class="flex flex-col items-center justify-center text-slate-500 px-6 py-2">
+<span class="material-symbols-outlined text-2xl" data-icon="home">home</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-amber-100 text-amber-900 rounded-2xl px-6 py-2">
+<span class="material-symbols-outlined text-2xl" data-icon="add_circle" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider">Add Entry</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 px-6 py-2">
+<span class="material-symbols-outlined text-2xl" data-icon="settings">settings</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider">Settings</span>
+</div>
+</nav>
+</body></html>

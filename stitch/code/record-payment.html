@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Record Payment - Hisaab Kitaab</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed-variant": "#00429b",
+                        "on-surface": "#1a1c1c",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#f3f3f3",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary-fixed": "#2a1700",
+                        "inverse-surface": "#2f3131",
+                        "inverse-primary": "#b0c6ff",
+                        "surface-dim": "#dadada",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#dcdddd",
+                        "error": "#ba1a1a",
+                        "primary-container": "#1a4faa",
+                        "inverse-on-surface": "#f1f1f1",
+                        "surface-container": "#eeeeee",
+                        "tertiary-fixed-dim": "#ffb960",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-container": "#764900",
+                        "surface-tint": "#2a5ab6",
+                        "outline-variant": "#c3c6d4",
+                        "on-background": "#1a1c1c",
+                        "primary": "#003886",
+                        "outline": "#737783",
+                        "surface-bright": "#f9f9f9",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9f9",
+                        "tertiary": "#573500",
+                        "primary-fixed": "#d9e2ff",
+                        "on-tertiary-container": "#ffba63",
+                        "secondary": "#5d5f5f",
+                        "background": "#f9f9f9",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-primary-fixed": "#001945",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#434652",
+                        "surface-variant": "#e2e2e2",
+                        "on-primary-container": "#b2c7ff",
+                        "surface-container-high": "#e8e8e8",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#b0c6ff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-secondary-container": "#5f6161"
+                    },
+                    fontFamily: {
+                        "headline": ["Be Vietnam Pro"],
+                        "body": ["Be Vietnam Pro"],
+                        "label": ["Be Vietnam Pro"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- Top AppBar - As per Shared Component -->
+<header class="sticky top-0 z-40 bg-slate-50 dark:bg-slate-950 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="Active: scale-95 duration-150 p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-blue-900 dark:text-blue-400">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Be_Vietnam_Pro'] text-lg font-bold tracking-tight text-blue-900 dark:text-blue-400">Record Payment - Ramesh Sharma</h1>
+</div>
+<div class="hidden md:flex items-center gap-6">
+<span class="font-['Be_Vietnam_Pro'] text-lg font-bold tracking-tight text-blue-900 dark:text-blue-400">₹1,240 Pending</span>
+</div>
+</header>
+<main class="max-w-xl mx-auto px-4 mt-8 space-y-10">
+<!-- Balance Overview Bento Card -->
+<section class="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center text-center space-y-2 border border-outline-variant/10">
+<span class="text-on-surface-variant font-label text-xs uppercase tracking-[0.15em] font-bold">Current Balance</span>
+<div class="text-[2.75rem] font-black tracking-tight text-error leading-tight">
+                ₹340
+            </div>
+<div class="flex items-center gap-2 mt-2 px-3 py-1 bg-error-container text-on-error-container rounded-full text-xs font-semibold">
+<span class="material-symbols-outlined text-[16px]" data-icon="warning">warning</span>
+<span>Overdue 3 days</span>
+</div>
+</section>
+<!-- Payment Input Section -->
+<section class="space-y-6">
+<div class="space-y-2">
+<label class="text-on-surface font-semibold text-lg px-2">Payment Amount</label>
+<div class="relative group">
+<span class="absolute left-6 top-1/2 -translate-y-1/2 text-[2.5rem] font-bold text-outline group-focus-within:text-primary transition-colors">₹</span>
+<input autofocus="" class="w-full bg-surface-container-high border-none rounded-3xl pt-8 pb-8 pl-14 pr-6 text-[3rem] font-black text-on-surface focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-outline/30" placeholder="0.00" type="number"/>
+</div>
+</div>
+<!-- Quick Amount Chips -->
+<div class="flex flex-wrap gap-3 px-2">
+<button class="px-5 py-3 rounded-2xl bg-surface-container-low text-on-surface font-bold text-sm border border-outline-variant/20 hover:bg-primary-fixed transition-colors">₹50</button>
+<button class="px-5 py-3 rounded-2xl bg-surface-container-low text-on-surface font-bold text-sm border border-outline-variant/20 hover:bg-primary-fixed transition-colors">₹100</button>
+<button class="px-5 py-3 rounded-2xl bg-surface-container-low text-on-surface font-bold text-sm border border-outline-variant/20 hover:bg-primary-fixed transition-colors">₹200</button>
+<button class="px-5 py-3 rounded-2xl bg-surface-container-low text-on-surface font-bold text-sm border border-outline-variant/20 hover:bg-primary-fixed transition-colors">₹500</button>
+</div>
+</section>
+<!-- Payment Mode Segmented Control -->
+<section class="space-y-4">
+<label class="text-on-surface font-semibold text-lg px-2">Payment Mode</label>
+<div class="flex p-1.5 bg-surface-container-low rounded-[2rem] border border-outline-variant/15">
+<button class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.75rem] bg-white shadow-sm text-primary font-bold transition-all">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                    Cash
+                </button>
+<button class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.75rem] text-on-surface-variant font-medium hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined" data-icon="qr_code_2">qr_code_2</span>
+                    UPI
+                </button>
+<button class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.75rem] text-on-surface-variant font-medium hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span>
+                    Other
+                </button>
+</div>
+</section>
+<!-- Optional Note -->
+<section class="space-y-4">
+<label class="text-on-surface font-semibold text-lg px-2">Notes <span class="text-on-surface-variant text-sm font-normal">(Optional)</span></label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low border-none rounded-3xl p-5 text-on-surface focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-outline/50" placeholder="Add details like 'Part payment' or 'Given to delivery boy'..." rows="3"></textarea>
+</div>
+</section>
+<!-- Primary Action Button -->
+<div class="pt-6">
+<button class="w-full py-5 rounded-3xl bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold text-xl flex items-center justify-center gap-3 shadow-[0_8px_32px_rgba(0,56,134,0.15)] Active: scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+                Mark as Paid
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation - As per Shared Component -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,56,134,0.08)] rounded-t-3xl border-t border-slate-200/50 dark:border-slate-800/50">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-6 py-2 hover:text-blue-700 dark:hover:text-blue-300 transition-transform scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 rounded-2xl px-6 py-2 transition-transform scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="add_circle" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider mt-1">Add Entry</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-6 py-2 hover:text-blue-700 dark:hover:text-blue-300 transition-transform scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Be_Vietnam_Pro'] text-[11px] font-medium uppercase tracking-wider mt-1">Settings</span>
+</a>
+</nav>
+</body></html>
