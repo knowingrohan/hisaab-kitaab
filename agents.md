@@ -23,21 +23,23 @@
 - [x] `agents.md` created
 
 ## M1 - Core CRUD
-- [ ] Customer DAO + Add Customer sheet
-- [ ] Home screen (outstanding card, filters, customer list)
-- [ ] Customer card widget (matching Stitch design)
-- [ ] Add Entry bottom sheet (item steppers, total, save)
-- [ ] Entry DAO (entry + entry_items transaction)
-- [ ] Record Payment screen (amount input, quick chips, mode selector)
-- [ ] Payment DAO
-- [ ] Customer Detail screen (header, balance card, transaction timeline)
-- [ ] Riverpod providers wired end-to-end
+- [x] Customer DAO + Add Customer sheet
+- [x] Home screen (outstanding card, filters, customer list)
+- [x] Customer card widget (matching Stitch design)
+- [x] Add Entry bottom sheet (item steppers, total, save)
+- [x] Entry DAO (entry + entry_items transaction)
+- [x] Record Payment screen (amount input, quick chips, mode selector)
+- [x] Payment DAO
+- [x] Customer Detail screen (header, balance card, transaction timeline)
+- [x] Riverpod providers wired end-to-end
 
 ## M2 - Reminders
-- [ ] Overdue Reminders screen
-- [ ] WhatsApp deep-link utility
-- [ ] Individual + Bulk reminder buttons
-- [ ] UPI link generation
+- [x] Overdue Reminders screen
+- [x] WhatsApp deep-link utility (`core/utils/whatsapp_helper.dart`)
+- [x] UPI link generation (`core/utils/upi_helper.dart`)
+- [x] Individual + Bulk reminder buttons (OverdueRemindersScreen)
+- [x] WhatsApp button wired on CustomerCard + CustomerDetailScreen
+- [x] Alert threshold read dynamically from DB (settingsProvider / alertThresholdProvider)
 
 ## M3 - PDF/Invoice
 - [ ] Invoice PDF template
@@ -63,3 +65,5 @@
 | Date | Session | What was built | What's next |
 |------|---------|----------------|-------------|
 | 2026-03-30 | Session 1 | M0 complete — Flutter scaffold, Drift DB (7 tables + seed data), go_router with bottom nav, M3 theme from Stitch, all placeholder screens, agents.md | M1: Customer CRUD, Home screen, Add Entry, Record Payment, Customer Detail |
+| 2026-03-30 | Session 2 | M1 complete — CustomerWithBalance + TransactionItem models; AppDatabase DAO methods (async* streams, entry+items transaction); manual Riverpod providers; HomeScreen with filter tabs + FAB; AddCustomerSheet modal; CustomerCard widget (Stitch design); AddEntryScreen (customer picker tab); AddItemsSheet modal (item steppers, custom item, date picker, save); CustomerDetailScreen (balance card, transaction timeline); RecordPaymentScreen (quick chips, mode selector); SettingsScreen (business identity, alert threshold); router updated; `flutter analyze` 0 issues; APK builds cleanly | M2: Overdue logic (alert_threshold), WhatsApp deep-link utility, individual + bulk reminder buttons, UPI link generation |
+| 2026-03-30 | Session 3 | M2 complete — `WhatsAppHelper` (template builder + url_launcher deep-link with wa.me fallback); `UpiHelper` (upi://pay link builder); `settingsProvider` + `alertThresholdProvider` (reactive from DB); `overdueCustomersProvider`; `OverdueRemindersScreen` (overdue list, per-card Send Reminder button, bulk Send All in app bar, no-phone fallback); CustomerCard converted to ConsumerWidget with live WhatsApp action; CustomerDetailScreen app bar WhatsApp button wired; HomeScreen alert threshold now dynamic from settings; `flutter analyze` 0 issues; APK builds cleanly | M3: PDF invoice (pdf package, itemised bill template, share via WhatsApp/share_plus) |

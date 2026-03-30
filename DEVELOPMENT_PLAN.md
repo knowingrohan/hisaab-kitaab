@@ -6,7 +6,7 @@ Hisaab Kitaab (PressBook) is a Flutter Android-first app for iron/laundry vendor
 
 ---
 
-## Phase M0: Project Setup (This Session)
+## Phase M0: Project Setup (Complete)
 
 ### Step 1: Create Flutter project & initialize git
 
@@ -237,50 +237,122 @@ Insert default settings:
 
 ---
 
-## Phase M1: Core Features (Future Sessions)
+## Phase M1: Core Features ✅ COMPLETE (2026-03-30)
 
-1. **Home screen** — customer list with balance, filter tabs, society filter, search
-2. **Add Customer** — dialog/screen with name, flat, phone, society selector
-3. **Customer Detail** — balance card, transaction timeline
-4. **Add Items Entry** — bottom sheet with steppers, date picker, real-time total
-5. **Record Payment** — amount input, quick chips, payment mode, notes
+### What was built
+
+**Data layer**
+- `CustomerWithBalance` model — computed `balance` (totalBilled − totalPaid), `initials` getter
+- `TransactionItem` sealed class — `EntryTransaction` (with `List<EntryLineItem>`) + `PaymentTransaction`
+- `AppDatabase` DAO methods using `async*` reactive streams:
+  - `watchCustomersWithBalance()` — all customers sorted by outstanding balance descending
+  - `watchCustomerWithBalance(id)` — single customer with computed balance
+  - `watchCustomerTransactions(id)` — merged, date-sorted entries + payments for timeline
+  - `watchTotalOutstanding()` — sum of all balances across all customers
+  - `watchItemTypes()` — active item types ordered by `sortOrder`
+  - `insertEntryWithItems(...)` — Drift `transaction()` creating `entries` + `entry_items` atomically
+  - `insertPayment(...)` — single payment row insert
+  - `insertCustomer(...)` — new customer insert
+  - `watchSettings()` / `getSetting()` / `setSetting()` — key-value settings persistence
+
+**Providers** (manual Riverpod, no code generation)
+- `databaseProvider` — lazy singleton `AppDatabase` with `onDispose` teardown
+- `customersWithBalanceProvider`, `totalOutstandingProvider`
+- `customerWithBalanceProvider(id)`, `customerTransactionsProvider(id)`
+- `itemTypesProvider`
+
+**Screens & widgets**
+
+| File | Description |
+|------|-------------|
+| `HomeScreen` | SliverAppBar with pending-total badge, hero outstanding balance, filter chips (All / Overdue ≥₹200 / Settled), reactive customer list, FAB → Add Entry |
+| `CustomerCard` | Stitch-matching card — flat badge, name, last-activity relative date, balance (red left border if overdue), billed/paid chips, WhatsApp button placeholder |
+| `AddCustomerSheet` | Modal bottom sheet — name + flat + phone fields, saves to DB, auto-refreshes list |
+| `AddEntryScreen` | Second nav tab — searchable customer picker; tapping a customer opens `AddItemsSheet` as modal |
+| `AddItemsSheet` | Modal bottom sheet — stepper rows for all item types (+/−), custom "other item" section, date picker, live total, Save Entry (Drift transaction) |
+| `CustomerDetailScreen` | Header with initials avatar + flat badge, balance card (net / total billed / paid), transaction timeline, sticky Add Items + Record Payment action bar |
+| `TransactionTimeline` | Chronological timeline — entry cards with item chips, payment cards (green, mode label) |
+| `RecordPaymentScreen` | Balance overview card, large ₹ amount input, quick chips (₹50/100/200/500), Cash/UPI/Other mode selector, optional notes, Mark as Paid |
+| `SettingsScreen` | Business name + UPI ID (persisted to DB), alert threshold input |
+
+**Architecture decisions made**
+- `AddItemsSheet` is a modal bottom sheet (not a route) — matches Stitch overlay design
+- `/add-entry` route replaced with `AddEntryScreen` (customer picker); `AddItemsSheet` invoked programmatically from both `AddEntryScreen` and `CustomerDetailScreen`
+- Manual `StreamProvider` / `StreamProvider.family` throughout — no build_runner required for providers
+
+### Verification checklist
+1. `flutter analyze` → 0 issues
+2. `flutter build apk --debug` → builds cleanly
+3. Home screen shows reactive customer list with balance totals
+4. Add Customer → customer appears in list immediately
+5. Add Entry → entry saves, customer balance updates
+6. Record Payment → payment saves, balance decreases
+7. Customer Detail → transaction timeline shows entries + payments in date order
+8. Filter tabs (All / Overdue / Settled) correctly segment the list
+9. Settings screen persists business name and alert threshold
 
 ---
 
-## Phase M2: Reminders (Future Sessions)
+## Phase M2: Reminders ✅ COMPLETE (2026-03-30)
 
-1. Overdue threshold logic in providers
-2. WhatsApp deep-link (single customer)
-3. Overdue reminders screen with bulk send
-4. UPI deep-link in WhatsApp message
-5. Overdue badge on home screen header
-
----
-
-## Phase M3: Invoices (Future Sessions)
-
-1. PDF bill generation using `pdf` package
-2. Share via WhatsApp/share sheet
-3. Monthly summary screen
+### What was built
+- `core/utils/whatsapp_helper.dart` — `buildMessage()` (template vars: `{customer_name}`, `{amount}`, `{business_name}`) + `sendReminder()` (whatsapp:// deep-link with wa.me fallback)
+- `core/utils/upi_helper.dart` — `buildLink()` generating `upi://pay?pa=...&pn=...&am=...&cu=INR`
+- `core/providers/settings_provider.dart` — `settingsProvider` (reactive `Map<String,String>` from DB) + `alertThresholdProvider` (derived int, default 200)
+- `features/reminders/providers/reminder_providers.dart` — `overdueCustomersProvider` filtering customers with balance ≥ threshold
+- `OverdueRemindersScreen` — overdue customer list, per-card **Send Reminder** button, bulk **Send All (N)** in app bar, no-phone-number fallback chip
+- `CustomerCard` converted to `ConsumerWidget`; WhatsApp button now live
+- `CustomerDetailScreen` app bar WhatsApp icon wired to reminder flow
+- `HomeScreen` alert threshold now reads dynamically from settings (was hardcoded ₹200)
 
 ---
 
-## Phase M4: Cloud Backup (Future Sessions)
+## Phase M3: Invoices (Next up)
+
+**Goal:** Let the vendor generate a PDF invoice for any customer and export a monthly summary of all balances. Share via system share sheet (WhatsApp, Gmail, Drive, etc.).
+
+### Packages to add
+```yaml
+pdf: ^3.11.1         # Pure-Dart PDF builder — no code gen
+share_plus: ^10.1.4  # System share sheet — FileProvider handled automatically on Android
+```
+
+### What to build
+
+1. **`core/utils/pdf_invoice_helper.dart`** — static helper:
+   - `buildCustomerInvoice({customer, transactions, settings})` → `Future<File>` saved to temp dir
+   - `buildMonthlySummary({customers, totalOutstanding, settings, generatedAt})` → `Future<File>`
+   - Customer Invoice layout: blue header band (business name, customer, date), balance strip (billed/paid/due), entries table (Date|Items|Amt), payments table (Date|Mode|Notes|Amt), footer (UPI ID + generation date)
+   - Monthly Summary layout: header, total outstanding, customer table (Name|Flat|Billed|Paid|Balance), footer count
+
+2. **Wire PDF button in `CustomerDetailScreen`** — convert to `ConsumerStatefulWidget`, add `_pdfLoading` state, call `PdfInvoiceHelper.buildCustomerInvoice()` then `SharePlus.instance.shareXFiles()`
+
+3. **Monthly summary export in `SettingsScreen`** — add "REPORTS" card with Export button; calls `PdfInvoiceHelper.buildMonthlySummary()` then shares
+
+### Key conventions
+- `pw.Font.helvetica()` / `pw.Font.helveticaBold()` for PDF fonts (no google_fonts in PDF)
+- Guard `pw.Table` against zero rows (assertion error)
+- `ref.read` (not `ref.watch`) inside button handlers
+- `share_plus` v10 API: `SharePlus.instance.shareXFiles(...)`
+
+---
+
+## Phase M4: Cloud Backup (Future)
 
 1. Firebase Auth (phone OTP)
-2. Firestore sync
+2. Firestore sync engine (customers, entries, payments)
 3. Restore flow
-4. Backup settings in Settings screen
+4. Backup status indicator in Settings screen
 
 ---
 
-## Phase M5: Polish (Future Sessions)
+## Phase M5: Polish (Future)
 
 1. App lock (PIN + biometric)
-2. Language toggle (Hindi/English/Hinglish)
-3. Onboarding flow
+2. Language toggle (Hindi / English / Hinglish)
+3. Onboarding flow for first-time vendors
 4. Firebase Crashlytics
-5. Edge case handling
+5. Edge-case handling (duplicate customers, zero-amount entries, offline mode)
 
 ---
 

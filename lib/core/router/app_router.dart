@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:hisaab_kitaab/features/home/presentation/home_screen.dart';
-import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
+import 'package:hisaab_kitaab/features/add_entry/presentation/add_entry_screen.dart';
 import 'package:hisaab_kitaab/features/settings/presentation/settings_screen.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/customer_detail_screen.dart';
 import 'package:hisaab_kitaab/features/payment/presentation/record_payment_screen.dart';
@@ -56,13 +56,13 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
-        // Branch 1: Add Entry
+        // Branch 1: Add Entry — customer picker → shows AddItemsSheet modal
         StatefulShellBranch(
           routes: [
             GoRoute(
               path: '/add-entry',
               name: 'addEntry',
-              builder: (context, state) => const AddItemsSheet(),
+              builder: (context, state) => const AddEntryScreen(),
             ),
           ],
         ),
