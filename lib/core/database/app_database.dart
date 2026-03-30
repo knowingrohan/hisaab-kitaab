@@ -242,6 +242,22 @@ class AppDatabase extends _$AppDatabase {
     return billed - paid;
   }
 
+  Future<void> deleteCustomer(int id) async {
+    await transaction(() async {
+      final customerEntries = await (select(entries)
+            ..where((e) => e.customerId.equals(id)))
+          .get();
+      for (final entry in customerEntries) {
+        await (delete(entryItems)
+              ..where((i) => i.entryId.equals(entry.id)))
+            .go();
+      }
+      await (delete(entries)..where((e) => e.customerId.equals(id))).go();
+      await (delete(payments)..where((p) => p.customerId.equals(id))).go();
+      await (delete(customers)..where((c) => c.id.equals(id))).go();
+    });
+  }
+
   // ── Item Types ────────────────────────────────────────────────────────────
 
   Stream<List<ItemType>> watchItemTypes() =>

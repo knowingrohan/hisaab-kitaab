@@ -6,7 +6,18 @@ import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 
 class AddCustomerSheet extends ConsumerStatefulWidget {
-  const AddCustomerSheet({super.key});
+  final int? editingId;
+  final String? initialName;
+  final String? initialFlat;
+  final String? initialPhone;
+
+  const AddCustomerSheet({
+    super.key,
+    this.editingId,
+    this.initialName,
+    this.initialFlat,
+    this.initialPhone,
+  });
 
   @override
   ConsumerState<AddCustomerSheet> createState() => _AddCustomerSheetState();
@@ -20,6 +31,14 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.initialName != null) _nameCtrl.text = widget.initialName!;
+    if (widget.initialFlat != null) _flatCtrl.text = widget.initialFlat!;
+    if (widget.initialPhone != null) _phoneCtrl.text = widget.initialPhone!;
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     _flatCtrl.dispose();
@@ -30,16 +49,26 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final db = ref.read(databaseProvider);
     try {
-      await ref.read(databaseProvider).insertCustomer(
-            CustomersCompanion.insert(
-              name: _nameCtrl.text.trim(),
-              flatNumber: _flatCtrl.text.trim(),
-              phone: Value(_phoneCtrl.text.trim().isEmpty
-                  ? null
-                  : _phoneCtrl.text.trim()),
-            ),
-          );
+      if (widget.editingId != null) {
+        await db.updateCustomer(CustomersCompanion(
+          id: Value(widget.editingId!),
+          name: Value(_nameCtrl.text.trim()),
+          flatNumber: Value(_flatCtrl.text.trim()),
+          phone: Value(_phoneCtrl.text.trim().isEmpty
+              ? null
+              : _phoneCtrl.text.trim()),
+        ));
+      } else {
+        await db.insertCustomer(CustomersCompanion.insert(
+          name: _nameCtrl.text.trim(),
+          flatNumber: _flatCtrl.text.trim(),
+          phone: Value(_phoneCtrl.text.trim().isEmpty
+              ? null
+              : _phoneCtrl.text.trim()),
+        ));
+      }
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -81,7 +110,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                     ),
                   ),
                   Text(
-                    'Add New Customer',
+                    widget.editingId != null ? 'Edit Customer' : 'Add New Customer',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -142,7 +171,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                               ),
                             )
                           : Text(
-                              'Add Customer',
+                              widget.editingId != null ? 'Save Changes' : 'Add Customer',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,

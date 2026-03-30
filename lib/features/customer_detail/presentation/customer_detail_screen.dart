@@ -7,9 +7,11 @@ import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
 import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
+import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_timeline.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
+import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
   final int customerId;
@@ -22,12 +24,58 @@ class CustomerDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
+      useRootNavigator: true,
       builder: (_) => AddItemsSheet(
         customerId: c.id,
         customerName: c.name,
         flatNumber: c.flatNumber,
       ),
     );
+  }
+
+  void _showEditSheet(BuildContext context, CustomerWithBalance c) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      useRootNavigator: true,
+      builder: (_) => AddCustomerSheet(
+        editingId: c.id,
+        initialName: c.name,
+        initialFlat: c.flatNumber,
+        initialPhone: c.phone,
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, CustomerWithBalance c) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Customer'),
+        content: Text(
+            'Delete ${c.name}? All entries and payments will be permanently removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(databaseProvider).deleteCustomer(c.id);
+      if (context.mounted) context.go('/home');
+    }
   }
 
   Future<void> _sendWhatsApp(
@@ -105,6 +153,8 @@ class CustomerDetailScreen extends ConsumerWidget {
           onRecordPayment: () =>
               context.push('/customer/$customerId/payment'),
           onSendWhatsApp: () => _sendWhatsApp(context, ref, customer),
+          onEdit: () => _showEditSheet(context, customer),
+          onDelete: () => _confirmDelete(context, ref, customer),
         );
       },
     );
@@ -117,6 +167,8 @@ class _DetailView extends StatelessWidget {
   final VoidCallback onAddItems;
   final VoidCallback onRecordPayment;
   final VoidCallback onSendWhatsApp;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _DetailView({
     required this.customer,
@@ -124,6 +176,8 @@ class _DetailView extends StatelessWidget {
     required this.onAddItems,
     required this.onRecordPayment,
     required this.onSendWhatsApp,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -155,6 +209,20 @@ class _DetailView extends StatelessWidget {
                 color: AppColors.error),
             onPressed: () {}, // M3: PDF invoice
             tooltip: 'PDF Invoice',
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'edit') onEdit();
+              if (value == 'delete') onDelete();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit Customer')),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete Customer',
+                    style: TextStyle(color: AppColors.error)),
+              ),
+            ],
           ),
           const SizedBox(width: 4),
         ],
