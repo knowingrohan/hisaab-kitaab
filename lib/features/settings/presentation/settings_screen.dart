@@ -5,7 +5,12 @@ import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
+import 'package:hisaab_kitaab/features/app_lock/presentation/pin_lock_screen.dart';
+import 'package:hisaab_kitaab/features/app_lock/providers/app_lock_provider.dart';
 import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
+import 'package:hisaab_kitaab/features/settings/providers/backup_provider.dart';
+import 'package:hisaab_kitaab/core/utils/backup_scheduler.dart';
+import 'package:hisaab_kitaab/core/providers/locale_provider.dart';
 
 final _settingsProvider = StreamProvider<Map<String, String>>((ref) {
   return ref.watch(databaseProvider).watchSettings();
@@ -215,6 +220,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  String _formatDate(DateTime dt) {
+    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _handleAppLockToggle(bool enable, bool isCurrentlyEnabled) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (enable) {
+      final pin = await showPinSetupSheet(context);
+      if (pin == null || !mounted) return;
+      await ref.read(appLockProvider.notifier).enableLock(pin);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('App lock enabled')),
+      );
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Disable App Lock'),
+          content: const Text(
+              'Are you sure you want to remove PIN protection?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Disable'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await ref.read(appLockProvider.notifier).disableLock();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('App lock disabled')),
+      );
+    }
+  }
+
+  Future<void> _handleChangePin() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final pin = await showPinSetupSheet(context);
+    if (pin == null || !mounted) return;
+    await ref.read(appLockProvider.notifier).changePin(pin);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('PIN updated')),
+    );
+  }
+
   Future<void> _deleteSociety(Society society) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -354,6 +412,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: const Text('Save Details'),
                   ),
                 ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Language ──────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'LANGUAGE',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Consumer(builder: (context, ref, _) {
+                  final locale = ref.watch(localeNotifierProvider);
+                  final selected = locale.languageCode;
+                  return InputDecorator(
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.language_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selected,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'en', child: Text('English')),
+                          DropdownMenuItem(
+                              value: 'hi',
+                              child: Text('हिंदी (Hindi)')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref
+                                .read(localeNotifierProvider.notifier)
+                                .setLocale(val);
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -780,6 +897,172 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 16),
+
+          // ── Data Backup ───────────────────────────────────────────────
+          Consumer(builder: (context, ref, _) {
+            final backupState = ref.watch(backupProvider);
+            final settings = ref.watch(_settingsProvider).valueOrNull ?? {};
+            final autoEnabled = settings['auto_backup_enabled'] == 'true';
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DATA BACKUP',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (backupState.account == null) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.cloud_outlined),
+                      title: const Text('Sign in with Google'),
+                      subtitle:
+                          const Text('Back up your data to Google Drive'),
+                      trailing: backupState.isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.chevron_right),
+                      onTap: backupState.isLoading
+                          ? null
+                          : () =>
+                              ref.read(backupProvider.notifier).signIn(),
+                    ),
+                  ] else ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const CircleAvatar(
+                        radius: 16,
+                        child: Icon(Icons.person, size: 18),
+                      ),
+                      title: Text(backupState.account!.email),
+                      trailing: TextButton(
+                        onPressed: () =>
+                            ref.read(backupProvider.notifier).signOut(),
+                        child: const Text('Sign Out'),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.backup_outlined),
+                      title: const Text('Back Up Now'),
+                      subtitle: backupState.lastBackupTime != null
+                          ? Text(
+                              'Last backup: ${_formatDate(backupState.lastBackupTime!)}')
+                          : const Text('No backup yet'),
+                      trailing: backupState.isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.chevron_right),
+                      onTap: backupState.isLoading
+                          ? null
+                          : () =>
+                              ref.read(backupProvider.notifier).backup(),
+                    ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Auto Daily Backup'),
+                      subtitle:
+                          const Text('Automatically back up once a day'),
+                      value: autoEnabled,
+                      onChanged: (val) async {
+                        await ref
+                            .read(databaseProvider)
+                            .setSetting('auto_backup_enabled', val.toString());
+                        if (val) {
+                          await BackupScheduler.instance.scheduleDaily();
+                        } else {
+                          await BackupScheduler.instance.cancel();
+                        }
+                      },
+                    ),
+                    if (backupState.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          backupState.errorMessage!,
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            );
+          }),
+
+          const SizedBox(height: 16),
+
+          // ── App Lock ──────────────────────────────────────────────────
+          Consumer(builder: (context, ref, _) {
+            final lockState = ref.watch(appLockProvider);
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(6),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'APP LOCK',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Enable PIN Lock'),
+                    subtitle: const Text('Require PIN to open the app'),
+                    value: lockState.isEnabled,
+                    onChanged: (val) =>
+                        _handleAppLockToggle(val, lockState.isEnabled),
+                  ),
+                  if (lockState.isEnabled) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.pin_outlined),
+                      title: const Text('Change PIN'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _handleChangePin,
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
 
           const SizedBox(height: 32),
 

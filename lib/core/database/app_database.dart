@@ -110,6 +110,18 @@ class AppDatabase extends _$AppDatabase {
           key: Value('language'),
           value: Value('en'),
         ),
+        const AppSettingsCompanion(
+          key: Value('app_lock_enabled'),
+          value: Value('false'),
+        ),
+        const AppSettingsCompanion(
+          key: Value('onboarding_done'),
+          value: Value('false'),
+        ),
+        const AppSettingsCompanion(
+          key: Value('auto_backup_enabled'),
+          value: Value('false'),
+        ),
       ]);
     });
   }
@@ -434,6 +446,13 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> insertPayment(PaymentsCompanion companion) =>
       into(payments).insert(companion);
+
+  // ── Backup Utilities ─────────────────────────────────────────────────────
+
+  /// Flush WAL into the main DB file so it can be safely copied for backup.
+  Future<void> checkpoint() async {
+    await customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
+  }
 
   // ── Settings ──────────────────────────────────────────────────────────────
 

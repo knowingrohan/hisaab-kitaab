@@ -41,10 +41,10 @@
 - [x] WhatsApp button wired on CustomerCard + CustomerDetailScreen
 - [x] Alert threshold read dynamically from DB (settingsProvider / alertThresholdProvider)
 
-## M3 - PDF/Invoice
-- [ ] Invoice PDF template
-- [ ] Monthly summary PDF
-- [ ] Share via WhatsApp
+## M3 - PDF/Invoice ✅
+- [x] Invoice PDF template (`core/utils/pdf_invoice_helper.dart` — `buildCustomerInvoice()`)
+- [x] Monthly summary PDF (`buildMonthlySummary()`)
+- [x] Share via WhatsApp (CustomerDetailScreen PDF button + SettingsScreen REPORTS card via `share_plus`)
 
 ## M4 - Cloud Backup(Google Drive) ✅
 - [x] `google_sign_in`, `googleapis`, `extension_google_sign_in_as_googleapis_auth` added to pubspec
@@ -67,11 +67,12 @@
 - [x] Zero-balance badge
 
 
-## M5 - Polish
-- [ ] App lock (PIN)
-- [ ] Language toggle (Hindi/English/Hinglish)
-- [ ] Onboarding flow
-- [ ] Crash monitoring
+## M5 - Polish ✅
+- [x] App lock (PIN + biometric) — `features/app_lock/` (PinLockScreen, PinSetupSheet, AppLockNotifier); `local_auth` package; lifecycle-aware locking in app.dart; toggle + Change PIN in SettingsScreen
+- [x] Language toggle (Hindi/English) — `localeNotifierProvider` + `flutter_localizations`; Locale stored in `app_settings`; Language dropdown in SettingsScreen
+- [x] Onboarding flow — 3-screen carousel (`features/onboarding/`); `onboarding_done` flag in DB; shown before lock screen on first launch
+- [x] Auto daily backup — `workmanager` + `BackupScheduler`; Auto Daily Backup toggle in DATA BACKUP settings card (schedules/cancels periodic WorkManager task)
+- [x] Crash monitoring — `sentry_flutter`; DSN injected via `--dart-define=SENTRY_DSN=...` at build time; no-op when DSN not set
 
 ---
 
@@ -91,3 +92,4 @@
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 7 — SQLCipher Encryption: swapped `sqlite3_flutter_libs` → `sqlcipher_flutter_libs 0.5.7`; `NativeDatabase.createInBackground` gains `setup` callback executing `PRAGMA key='hk@pressbook2024!'` as first statement for transparent encryption; `flutter analyze` 0 issues; APK builds cleanly | M4-Adhoc Unit 8: CSV Export |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 8 — CSV Export: added `csv: ^6.0.0`; new `CsvExporter` utility with `shareAllCustomers` (summary CSV) and `shareCustomerTransactions` (per-customer CSV with header + transaction rows); shared via `share_plus Share.shareXFiles` with temp file; Settings screen gains "DATA EXPORT" section with Export All Customers button; CustomerDetailScreen popup menu gains "Export CSV" item; `flutter analyze` 0 issues | M4-Adhoc Unit 9: Zero-Balance Badge |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 9 — Zero-Balance Badge: CustomerCard replaces plain "SETTLED" text with green bordered chip (check_circle icon + "SETTLED" label, color #059669) when balance ≤ 0; DUE/OVERDUE text unchanged; `flutter analyze` 0 issues; APK builds cleanly | M3: PDF Invoice |
+| 2026-03-31 | Session 6 | M5 complete — Unit 1: App Lock (PIN + biometric via `local_auth`; `AppLockNotifier`; `PinLockScreen` + `PinSetupSheet`; lifecycle locking on `paused`; APP LOCK card in Settings); Unit 2: Onboarding Flow (3-screen carousel; `onboarding_done` DB flag; shown on first launch before lock); Unit 3: Auto Daily Backup (`workmanager`; `BackupScheduler.scheduleDaily/cancel`; DATA BACKUP card in Settings with sign-in, back-up-now, auto toggle); Unit 4: Language Toggle (`flutter_localizations`; `localeNotifierProvider`; Language dropdown in Settings; en/hi supported); Unit 5: Crash Monitoring (`sentry_flutter`; DSN via `--dart-define=SENTRY_DSN`; no-op without DSN); also fixed: google_sign_in/googleapis/checkpoint missing from pubspec + DB; `flutter analyze` 0 issues | All milestones complete — app ready for release |
