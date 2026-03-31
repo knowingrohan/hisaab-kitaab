@@ -50,7 +50,7 @@
 - [x] Edit/delete customer
 - [x] Society management UI
 - [x] Customer search
-- [ ] Item rate config
+- [x] Item rate config
 - [ ] Edit/delete entry
 - [ ] WhatsApp template editor
 - [ ] SQLCipher encryption
@@ -81,3 +81,4 @@
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 1 — Edit/Delete Customer: `deleteCustomer(int id)` DAO (cascade deletes entries, entry_items, payments); `AddCustomerSheet` refactored to accept optional `editingId`/`initialName`/`initialFlat`/`initialPhone` params for pre-filled edit mode; `CustomerDetailScreen` gains PopupMenuButton (Edit → sheet, Delete → confirm dialog + go('/home')); `flutter analyze` 0 issues | M4-Adhoc Unit 2: Society Management UI |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 2 — Society Management UI: `watchSocieties/insertSociety/updateSociety/deleteSociety` DAO methods; `societiesProvider` StreamProvider; `AddCustomerSheet` gains society DropdownButtonFormField; Settings screen gains Societies section with add/edit/delete dialogs; `flutter analyze` 0 issues | M4-Adhoc Unit 3: Customer Search |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 3 — Customer Search: search bar on HomeScreen filtering by name/flat/phone; works with tab filters; clear button; "No results for '...'" empty state; `flutter analyze` 0 issues | M4-Adhoc Unit 4: Item Rate Config |
+| 2026-03-31 | Session 4 | M4-Adhoc Unit 4 — Item Rate Config: `insertItemType/updateItemType/deactivateItemType` DAO methods; Settings screen gains "Item Types & Rates" section with add/edit/deactivate; prevents removing last active item; `flutter analyze` 0 issues | M4-Adhoc Unit 5: Edit/Delete Entry |

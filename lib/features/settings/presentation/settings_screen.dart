@@ -44,6 +44,98 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(databaseProvider).setSetting(key, value);
   }
 
+  Future<void> _showItemTypeDialog({ItemType? existing}) async {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final rateCtrl =
+        TextEditingController(text: existing != null ? '${existing.rate}' : '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(existing == null ? 'Add Item Type' : 'Edit Item Type'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Item Name'),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: rateCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Rate (₹)',
+                prefixText: '₹ ',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final name = nameCtrl.text.trim();
+    final rate = int.tryParse(rateCtrl.text.trim()) ?? 0;
+    if (name.isEmpty || rate <= 0) return;
+    final db = ref.read(databaseProvider);
+    if (existing == null) {
+      await db.insertItemType(ItemTypesCompanion.insert(name: name, rate: rate));
+    } else {
+      await db.updateItemType(ItemTypesCompanion(
+        id: Value(existing.id),
+        name: Value(name),
+        rate: Value(rate),
+        iconName: Value(existing.iconName),
+        sortOrder: Value(existing.sortOrder),
+        isActive: const Value(true),
+      ));
+    }
+  }
+
+  Future<void> _deactivateItemType(
+      ItemType item, List<ItemType> allActive) async {
+    if (allActive.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('At least one item type must remain active')),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Item Type'),
+        content: Text('Remove "${item.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref.read(databaseProvider).deactivateItemType(item.id);
+    }
+  }
+
   Future<void> _showSocietyDialog({Society? existing}) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final addressCtrl = TextEditingController(text: existing?.address ?? '');
@@ -334,6 +426,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 16),
+
+          // ── Item Types ────────────────────────────────────────────────
+          Consumer(builder: (context, ref, _) {
+            final itemTypesAsync = ref.watch(
+              StreamProvider<List<ItemType>>((ref) =>
+                  ref.watch(databaseProvider).watchItemTypes()),
+            );
+            final items = itemTypesAsync.valueOrNull ?? [];
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'ITEM TYPES & RATES',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showItemTypeDialog(),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  ...items.map((item) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.checkroom_outlined),
+                        title: Text(item.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '₹${item.rate}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                              onPressed: () =>
+                                  _showItemTypeDialog(existing: item),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  size: 20, color: AppColors.error),
+                              onPressed: () =>
+                                  _deactivateItemType(item, items),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+            );
+          }),
 
           const SizedBox(height: 16),
 

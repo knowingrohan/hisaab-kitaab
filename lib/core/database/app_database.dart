@@ -292,6 +292,17 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
           .get();
 
+  Future<int> insertItemType(ItemTypesCompanion companion) =>
+      into(itemTypes).insert(companion);
+
+  Future<void> updateItemType(ItemTypesCompanion companion) =>
+      update(itemTypes).replace(companion);
+
+  Future<void> deactivateItemType(int id) async {
+    await (update(itemTypes)..where((t) => t.id.equals(id)))
+        .write(const ItemTypesCompanion(isActive: Value(false)));
+  }
+
   // ── Entry DAO ─────────────────────────────────────────────────────────────
 
   Future<void> insertEntryWithItems({
