@@ -1,9 +1,12 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/open.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite3_lib;
 
 import 'tables/societies.dart';
 import 'tables/customers.dart';
@@ -479,12 +482,43 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'hisaab_kitaab.db'));
+
+    // Probe: if an existing file can't be decrypted, it's a stale
+    // unencrypted DB from before SQLCipher was added. Delete it so a
+    // fresh encrypted DB is created on the next open.
+    // This runs on the main isolate where open.overrideFor is already
+    // set in main.dart, so sqlite3.open() loads libsqlcipher.so.
+    if (file.existsSync()) {
+      try {
+        final probeDb = sqlite3_lib.sqlite3.open(file.path);
+        probeDb.execute("PRAGMA key='hk@pressbook2024!'");
+        probeDb.execute('SELECT count(*) FROM sqlite_master');
+        probeDb.dispose();
+      } catch (_) {
+        file.deleteSync();
+        final wal = File('${file.path}-wal');
+        final shm = File('${file.path}-shm');
+        if (wal.existsSync()) wal.deleteSync();
+        if (shm.existsSync()) shm.deleteSync();
+      }
+    }
+
     return NativeDatabase.createInBackground(
       file,
+      // isolateSetup runs inside the background isolate BEFORE sqlite3 is
+      // loaded. Each Dart isolate has its own open.overrideFor state, so this
+      // must be set here — the override in main() only affects the UI isolate.
+      isolateSetup: () {
+        if (Platform.isAndroid) {
+          open.overrideFor(
+            OperatingSystem.android,
+            () => DynamicLibrary.open('libsqlcipher.so'),
+          );
+        }
+      },
       setup: (db) {
         // Transparent encryption key — must be the first statement executed.
         // On fresh installs this creates an encrypted database.
-        // Existing unencrypted databases must be re-created on first upgrade.
         db.execute("PRAGMA key='hk@pressbook2024!'");
       },
     );

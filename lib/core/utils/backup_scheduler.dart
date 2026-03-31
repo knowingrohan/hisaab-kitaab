@@ -1,7 +1,9 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/open.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../database/app_database.dart';
@@ -11,10 +13,19 @@ const _taskName = 'com.hisaab_kitaab.daily_backup';
 const _taskUniqueName = 'daily_backup';
 
 /// Called by WorkManager in the background — must be a top-level function.
+/// Runs in a separate isolate, so the sqlcipher override must be re-applied.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     if (taskName != _taskName) return Future.value(true);
+
+    // Re-apply the sqlcipher override — each isolate has its own DynamicLibrary state.
+    if (Platform.isAndroid) {
+      open.overrideFor(
+        OperatingSystem.android,
+        () => DynamicLibrary.open('libsqlcipher.so'),
+      );
+    }
 
     try {
       final db = AppDatabase();
@@ -51,7 +62,7 @@ class BackupScheduler {
       _taskName,
       frequency: const Duration(hours: 24),
       constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
   }
 

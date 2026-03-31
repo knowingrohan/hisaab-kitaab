@@ -25,19 +25,22 @@ flutter analyze
 # Tests
 flutter test
 flutter test test/path/to/test.dart   # single test file
+
+# Build with Sentry crash monitoring
+flutter run --dart-define=SENTRY_DSN=https://your-dsn@sentry.io/project
 ```
 
 ## Architecture
 
 **Feature-first clean architecture** with three top-level directories under `lib/`:
 
-- **`core/`** — Shared infrastructure: Drift database (`database/`), go_router config (`router/`), Material 3 theme (`theme/`)
-- **`features/`** — Each feature has `presentation/` (screens/widgets) and `providers/` (Riverpod) subdirectories. Features: `home`, `customer_detail`, `add_entry`, `payment`, `reminders`, `settings`
+- **`core/`** — Shared infrastructure: Drift database (`database/`), go_router config (`router/`), Material 3 theme (`theme/`), providers (`database_provider`, `settings_provider`, `locale_provider`), utils (`whatsapp_helper`, `upi_helper`, `pdf_invoice_helper`, `drive_backup_helper`, `csv_exporter`, `backup_scheduler`)
+- **`features/`** — Each feature has `presentation/` (screens/widgets) and `providers/` (Riverpod) subdirectories. Features: `home`, `customer_detail`, `add_entry`, `payment`, `reminders`, `settings`, `app_lock`, `onboarding`
 - **`shared/`** — Cross-feature widgets (e.g., `bottom_nav_shell.dart` with glassmorphism bottom nav)
 
-**State management:** Flutter Riverpod with code generation (`@riverpod` annotations + `riverpod_generator`).
+**State management:** Flutter Riverpod — manual `StreamProvider` / `StateNotifierProvider` (no build_runner for providers).
 
-**Database:** Drift (SQLite ORM) with 7 tables — `societies`, `customers`, `item_types`, `entries`, `entry_items`, `payments`, `app_settings`. Generated code lives in `app_database.g.dart`. Default seed data is inserted on first run.
+**Database:** Drift + SQLCipher (transparent encryption) with 7 tables — `societies`, `customers`, `item_types`, `entries`, `entry_items`, `payments`, `app_settings`. Generated code lives in `app_database.g.dart`. Default seed data is inserted on first run.
 
 **Navigation:** go_router with `StatefulShellRoute.indexedStack` for bottom nav (Home, Add Entry, Settings). Customer detail and payment screens are nested under the home branch.
 
@@ -48,19 +51,22 @@ flutter test test/path/to/test.dart   # single test file
 - Primary: `#003886`, Surface: `#F9F9F9`, WhatsApp green: `#25D366`
 - Reference mockups: `stitch/images/*.png` (screenshots) and `stitch/code/*.html` (Stitch exports)
 
-## Development Phases
+## Development Status
 
-Progress is tracked in `agents.md`. The full roadmap is in `DEVELOPMENT_PLAN.md`.
+**All milestones complete (M0–M5).** Full history in `DEVLOG.md`.
 
-- **M0 (complete):** Project scaffold, Drift DB, go_router, M3 theme, placeholder screens
-- **M1:** Core CRUD — customer management, add entry, record payment, customer detail, Riverpod providers
-- **M2:** Reminders — overdue logic, WhatsApp/UPI deep-links
-- **M3:** PDF invoices
-- **M4:** Cloud backup (Firebase)
-- **M5:** Polish (app lock, i18n, onboarding)
+- **M0 ✅** Project scaffold, Drift DB, go_router, M3 theme
+- **M1 ✅** Core CRUD — customer management, add entry, record payment, customer detail
+- **M2 ✅** Reminders — overdue logic, WhatsApp/UPI deep-links
+- **M3 ✅** PDF invoices (customer invoice + monthly summary)
+- **M4 ✅** Cloud backup — Google Drive (`DriveBackupHelper`, WAL checkpoint, file-swap restore)
+- **M4-Adhoc ✅** All 9 missing FRs — edit/delete customer, society management, search, item rates, edit/delete entry, WhatsApp template editor, SQLCipher encryption, CSV export, zero-balance badge
+- **M5 ✅** Polish — app lock (PIN + biometric), onboarding carousel, auto daily backup, language toggle (EN/HI), crash monitoring (Sentry)
 
 ## Important Conventions
 
-- Update `agents.md` at the end of every development session with what was built and what's next
-- PRD lives in `PressBook_PRD_v1.0.docx` — consult it for requirements and use cases
+- Update `DEVLOG.md` at the end of every development session with what was built
+- PRD lives in `hisaab-kitaab.prd.md` — consult it for requirements and use cases
 - After modifying any Drift table or adding `@riverpod` providers, re-run `build_runner build`
+- `useRootNavigator: true` on all `showModalBottomSheet` calls (outer scaffold uses `extendBody: true`)
+- `flutter analyze` must report 0 issues before committing
