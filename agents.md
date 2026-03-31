@@ -49,7 +49,7 @@
 ## M4-Adhoc - Missing FRs
 - [x] Edit/delete customer
 - [x] Society management UI
-- [ ] Customer search
+- [x] Customer search
 - [ ] Item rate config
 - [ ] Edit/delete entry
 - [ ] WhatsApp template editor
@@ -80,3 +80,4 @@
 | 2026-03-30 | Session 3 | M2 complete — `WhatsAppHelper` (template builder + url_launcher deep-link with wa.me fallback); `UpiHelper` (upi://pay link builder); `settingsProvider` + `alertThresholdProvider` (reactive from DB); `overdueCustomersProvider`; `OverdueRemindersScreen` (overdue list, per-card Send Reminder button, bulk Send All in app bar, no-phone fallback); CustomerCard converted to ConsumerWidget with live WhatsApp action; CustomerDetailScreen app bar WhatsApp button wired; HomeScreen alert threshold now dynamic from settings; `flutter analyze` 0 issues; APK builds cleanly | M3: PDF invoice (pdf package, itemised bill template, share via WhatsApp/share_plus) |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 1 — Edit/Delete Customer: `deleteCustomer(int id)` DAO (cascade deletes entries, entry_items, payments); `AddCustomerSheet` refactored to accept optional `editingId`/`initialName`/`initialFlat`/`initialPhone` params for pre-filled edit mode; `CustomerDetailScreen` gains PopupMenuButton (Edit → sheet, Delete → confirm dialog + go('/home')); `flutter analyze` 0 issues | M4-Adhoc Unit 2: Society Management UI |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 2 — Society Management UI: `watchSocieties/insertSociety/updateSociety/deleteSociety` DAO methods; `societiesProvider` StreamProvider; `AddCustomerSheet` gains society DropdownButtonFormField; Settings screen gains Societies section with add/edit/delete dialogs; `flutter analyze` 0 issues | M4-Adhoc Unit 3: Customer Search |
+| 2026-03-31 | Session 4 | M4-Adhoc Unit 3 — Customer Search: search bar on HomeScreen filtering by name/flat/phone; works with tab filters; clear button; "No results for '...'" empty state; `flutter analyze` 0 issues | M4-Adhoc Unit 4: Item Rate Config |
