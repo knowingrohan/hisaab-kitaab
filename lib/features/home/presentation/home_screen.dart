@@ -20,13 +20,29 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   _Filter _filter = _Filter.all;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   List<CustomerWithBalance> _applyFilter(
       List<CustomerWithBalance> all, int threshold) {
+    var list = all;
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((c) =>
+          c.name.toLowerCase().contains(q) ||
+          c.flatNumber.toLowerCase().contains(q) ||
+          (c.phone != null && c.phone!.toLowerCase().contains(q))).toList();
+    }
     return switch (_filter) {
-      _Filter.all => all,
-      _Filter.overdue => all.where((c) => c.balance >= threshold).toList(),
-      _Filter.settled => all.where((c) => c.balance < threshold).toList(),
+      _Filter.all => list,
+      _Filter.overdue => list.where((c) => c.balance >= threshold).toList(),
+      _Filter.settled => list.where((c) => c.balance < threshold).toList(),
     };
   }
 
@@ -35,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useRootNavigator: true,
       builder: (_) => const AddCustomerSheet(),
     );
   }
@@ -154,6 +171,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Search bar
+                  TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name, flat, phone…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.surfaceContainerLow,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Filter tabs
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -186,7 +231,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final filtered = _applyFilter(customers, alertThreshold);
               if (filtered.isEmpty) {
                 return SliverFillRemaining(
-                  child: _emptyState(context),
+                  child: _emptyState(context, customers.isEmpty),
                 );
               }
               return SliverPadding(
@@ -256,31 +301,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _emptyState(BuildContext context) {
+  Widget _emptyState(BuildContext context, bool noCustomersAtAll) {
     final theme = Theme.of(context);
+    final isSearching = _searchQuery.isNotEmpty;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.people_outline,
+            Icon(
+              isSearching ? Icons.search_off : Icons.people_outline,
               size: 64,
               color: AppColors.outlineVariant,
             ),
             const SizedBox(height: 16),
             Text(
-              _filter == _Filter.all
-                  ? 'No customers yet'
-                  : 'No customers in this category',
+              isSearching
+                  ? 'No results for "$_searchQuery"'
+                  : noCustomersAtAll
+                      ? 'No customers yet'
+                      : 'No customers in this category',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
-            if (_filter == _Filter.all)
+            if (!isSearching && noCustomersAtAll)
               Text(
                 'Tap the person+ icon above\nto add your first customer',
                 textAlign: TextAlign.center,

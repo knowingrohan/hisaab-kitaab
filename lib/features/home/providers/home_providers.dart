@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 
@@ -9,4 +10,8 @@ final customersWithBalanceProvider =
 
 final totalOutstandingProvider = StreamProvider<int>((ref) {
   return ref.watch(databaseProvider).watchTotalOutstanding();
+});
+
+final societiesProvider = StreamProvider<List<Society>>((ref) {
+  return ref.watch(databaseProvider).watchSocieties();
 });

@@ -5,8 +5,15 @@ import 'package:intl/intl.dart';
 
 class TransactionTimeline extends StatelessWidget {
   final List<TransactionItem> transactions;
+  final void Function(EntryTransaction)? onEditEntry;
+  final void Function(EntryTransaction)? onDeleteEntry;
 
-  const TransactionTimeline({super.key, required this.transactions});
+  const TransactionTimeline({
+    super.key,
+    required this.transactions,
+    this.onEditEntry,
+    this.onDeleteEntry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +47,12 @@ class TransactionTimeline extends StatelessWidget {
       itemCount: transactions.length,
       itemBuilder: (context, index) {
         final item = transactions[index];
-        return _TimelineItem(item: item, isLast: index == transactions.length - 1);
+        return _TimelineItem(
+          item: item,
+          isLast: index == transactions.length - 1,
+          onEditEntry: onEditEntry,
+          onDeleteEntry: onDeleteEntry,
+        );
       },
     );
   }
@@ -49,13 +61,25 @@ class TransactionTimeline extends StatelessWidget {
 class _TimelineItem extends StatelessWidget {
   final TransactionItem item;
   final bool isLast;
+  final void Function(EntryTransaction)? onEditEntry;
+  final void Function(EntryTransaction)? onDeleteEntry;
 
-  const _TimelineItem({required this.item, required this.isLast});
+  const _TimelineItem({
+    required this.item,
+    required this.isLast,
+    this.onEditEntry,
+    this.onDeleteEntry,
+  });
 
   @override
   Widget build(BuildContext context) {
     return switch (item) {
-      EntryTransaction() => _EntryRow(entry: item as EntryTransaction, isLast: isLast),
+      EntryTransaction() => _EntryRow(
+          entry: item as EntryTransaction,
+          isLast: isLast,
+          onEdit: onEditEntry,
+          onDelete: onDeleteEntry,
+        ),
       PaymentTransaction() =>
         _PaymentRow(payment: item as PaymentTransaction, isLast: isLast),
     };
@@ -67,8 +91,15 @@ class _TimelineItem extends StatelessWidget {
 class _EntryRow extends StatelessWidget {
   final EntryTransaction entry;
   final bool isLast;
+  final void Function(EntryTransaction)? onEdit;
+  final void Function(EntryTransaction)? onDelete;
 
-  const _EntryRow({required this.entry, required this.isLast});
+  const _EntryRow({
+    required this.entry,
+    required this.isLast,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -138,12 +169,38 @@ class _EntryRow extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text(
-                        '₹${entry.totalAmount}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.onSurface,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '₹${entry.totalAmount}',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          if (onEdit != null || onDelete != null)
+                            PopupMenuButton<String>(
+                              iconSize: 18,
+                              padding: EdgeInsets.zero,
+                              onSelected: (value) {
+                                if (value == 'edit') onEdit?.call(entry);
+                                if (value == 'delete') onDelete?.call(entry);
+                              },
+                              itemBuilder: (_) => [
+                                if (onEdit != null)
+                                  const PopupMenuItem(
+                                      value: 'edit', child: Text('Edit')),
+                                if (onDelete != null)
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete',
+                                        style: TextStyle(
+                                            color: AppColors.error)),
+                                  ),
+                              ],
+                            ),
+                        ],
                       ),
                     ],
                   ),

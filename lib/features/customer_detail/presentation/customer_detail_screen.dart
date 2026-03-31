@@ -7,9 +7,12 @@ import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
 import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
+import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_timeline.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
+import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
   final int customerId;
@@ -22,12 +25,110 @@ class CustomerDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
+      useRootNavigator: true,
       builder: (_) => AddItemsSheet(
         customerId: c.id,
         customerName: c.name,
         flatNumber: c.flatNumber,
       ),
     );
+  }
+
+  void _showEditEntrySheet(BuildContext context, CustomerWithBalance c,
+      EntryTransaction entry) {
+    // Build pre-filled quantities map from entry items
+    // EntryLineItem doesn't carry itemTypeId, so we open the sheet empty;
+    // the user adjusts quantities from scratch for edits.
+    final quantities = <int, int>{};
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      useRootNavigator: true,
+      builder: (_) => AddItemsSheet(
+        customerId: c.id,
+        customerName: c.name,
+        flatNumber: c.flatNumber,
+        existingEntryId: entry.entryId,
+        existingDate: entry.entryDate,
+        existingQuantities: quantities,
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteEntry(
+      BuildContext context, WidgetRef ref, EntryTransaction entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text(
+            'Delete this entry of ₹${entry.totalAmount}? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(databaseProvider).deleteEntry(entry.entryId);
+    }
+  }
+
+  void _showEditSheet(BuildContext context, CustomerWithBalance c) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      useRootNavigator: true,
+      builder: (_) => AddCustomerSheet(
+        editingId: c.id,
+        initialName: c.name,
+        initialFlat: c.flatNumber,
+        initialPhone: c.phone,
+        initialSocietyId: c.societyId,
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, CustomerWithBalance c) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Customer'),
+        content: Text(
+            'Delete ${c.name}? All entries and payments will be permanently removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(databaseProvider).deleteCustomer(c.id);
+      if (context.mounted) context.go('/home');
+    }
   }
 
   Future<void> _sendWhatsApp(
@@ -105,6 +206,20 @@ class CustomerDetailScreen extends ConsumerWidget {
           onRecordPayment: () =>
               context.push('/customer/$customerId/payment'),
           onSendWhatsApp: () => _sendWhatsApp(context, ref, customer),
+          onEdit: () => _showEditSheet(context, customer),
+          onDelete: () => _confirmDelete(context, ref, customer),
+          onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
+          onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
+          onExportCsv: () {
+            final transactions = transactionsAsync.valueOrNull;
+            if (transactions == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Transactions still loading')),
+              );
+              return;
+            }
+            CsvExporter.shareCustomerTransactions(customer, transactions);
+          },
         );
       },
     );
@@ -117,6 +232,11 @@ class _DetailView extends StatelessWidget {
   final VoidCallback onAddItems;
   final VoidCallback onRecordPayment;
   final VoidCallback onSendWhatsApp;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final void Function(EntryTransaction) onEditEntry;
+  final void Function(EntryTransaction) onDeleteEntry;
+  final VoidCallback onExportCsv;
 
   const _DetailView({
     required this.customer,
@@ -124,6 +244,11 @@ class _DetailView extends StatelessWidget {
     required this.onAddItems,
     required this.onRecordPayment,
     required this.onSendWhatsApp,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onEditEntry,
+    required this.onDeleteEntry,
+    required this.onExportCsv,
   });
 
   @override
@@ -155,6 +280,25 @@ class _DetailView extends StatelessWidget {
                 color: AppColors.error),
             onPressed: () {}, // M3: PDF invoice
             tooltip: 'PDF Invoice',
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'edit') onEdit();
+              if (value == 'delete') onDelete();
+              if (value == 'export_csv') onExportCsv();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit Customer')),
+              PopupMenuItem(
+                value: 'export_csv',
+                child: Text('Export CSV'),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete Customer',
+                    style: TextStyle(color: AppColors.error)),
+              ),
+            ],
           ),
           const SizedBox(width: 4),
         ],
@@ -341,6 +485,8 @@ class _DetailView extends StatelessWidget {
               error: (e, _) => Text('Error: $e'),
               data: (transactions) => TransactionTimeline(
                 transactions: transactions,
+                onEditEntry: onEditEntry,
+                onDeleteEntry: onDeleteEntry,
               ),
             ),
           ],

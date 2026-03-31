@@ -114,6 +114,26 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // ── Society DAO ───────────────────────────────────────────────────────────
+
+  Stream<List<Society>> watchSocieties() =>
+      (select(societies)..orderBy([(s) => OrderingTerm.asc(s.name)])).watch();
+
+  Future<int> insertSociety(SocietiesCompanion companion) =>
+      into(societies).insert(companion);
+
+  Future<void> updateSociety(SocietiesCompanion companion) =>
+      update(societies).replace(companion);
+
+  Future<bool> deleteSociety(int id) async {
+    final linked = await (select(customers)
+          ..where((c) => c.societyId.equals(id)))
+        .get();
+    if (linked.isNotEmpty) return false;
+    await (delete(societies)..where((s) => s.id.equals(id))).go();
+    return true;
+  }
+
   // ── Customer DAO ──────────────────────────────────────────────────────────
 
   Future<int> insertCustomer(CustomersCompanion companion) =>
@@ -242,6 +262,22 @@ class AppDatabase extends _$AppDatabase {
     return billed - paid;
   }
 
+  Future<void> deleteCustomer(int id) async {
+    await transaction(() async {
+      final customerEntries = await (select(entries)
+            ..where((e) => e.customerId.equals(id)))
+          .get();
+      for (final entry in customerEntries) {
+        await (delete(entryItems)
+              ..where((i) => i.entryId.equals(entry.id)))
+            .go();
+      }
+      await (delete(entries)..where((e) => e.customerId.equals(id))).go();
+      await (delete(payments)..where((p) => p.customerId.equals(id))).go();
+      await (delete(customers)..where((c) => c.id.equals(id))).go();
+    });
+  }
+
   // ── Item Types ────────────────────────────────────────────────────────────
 
   Stream<List<ItemType>> watchItemTypes() =>
@@ -255,6 +291,17 @@ class AppDatabase extends _$AppDatabase {
             ..where((t) => t.isActive.equals(true))
             ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
           .get();
+
+  Future<int> insertItemType(ItemTypesCompanion companion) =>
+      into(itemTypes).insert(companion);
+
+  Future<void> updateItemType(ItemTypesCompanion companion) =>
+      update(itemTypes).replace(companion);
+
+  Future<void> deactivateItemType(int id) async {
+    await (update(itemTypes)..where((t) => t.id.equals(id)))
+        .write(const ItemTypesCompanion(isActive: Value(false)));
+  }
 
   // ── Entry DAO ─────────────────────────────────────────────────────────────
 
@@ -348,6 +395,41 @@ class AppDatabase extends _$AppDatabase {
     return all;
   }
 
+  Future<void> deleteEntry(int entryId) async {
+    await transaction(() async {
+      await (delete(entryItems)..where((i) => i.entryId.equals(entryId))).go();
+      await (delete(entries)..where((e) => e.id.equals(entryId))).go();
+    });
+  }
+
+  Future<void> updateEntryWithItems({
+    required int entryId,
+    required DateTime entryDate,
+    required List<EntryItemInput> items,
+  }) async {
+    final totalAmount =
+        items.fold(0, (sum, item) => sum + item.quantity * item.rate);
+    await transaction(() async {
+      await (delete(entryItems)..where((i) => i.entryId.equals(entryId))).go();
+      await (update(entries)..where((e) => e.id.equals(entryId))).write(
+        EntriesCompanion(
+          entryDate: Value(entryDate),
+          totalAmount: Value(totalAmount),
+        ),
+      );
+      for (final item in items) {
+        await into(entryItems).insert(EntryItemsCompanion.insert(
+          entryId: entryId,
+          itemTypeId: Value(item.itemTypeId),
+          itemName: Value(item.itemName),
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
+        ));
+      }
+    });
+  }
+
   // ── Payment DAO ───────────────────────────────────────────────────────────
 
   Future<int> insertPayment(PaymentsCompanion companion) =>
@@ -378,6 +460,14 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'hisaab_kitaab.db'));
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (db) {
+        // Transparent encryption key — must be the first statement executed.
+        // On fresh installs this creates an encrypted database.
+        // Existing unencrypted databases must be re-created on first upgrade.
+        db.execute("PRAGMA key='hk@pressbook2024!'");
+      },
+    );
   });
 }

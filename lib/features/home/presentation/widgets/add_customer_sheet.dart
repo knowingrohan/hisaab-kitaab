@@ -4,9 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
+import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 
 class AddCustomerSheet extends ConsumerStatefulWidget {
-  const AddCustomerSheet({super.key});
+  final int? editingId;
+  final String? initialName;
+  final String? initialFlat;
+  final String? initialPhone;
+  final int? initialSocietyId;
+
+  const AddCustomerSheet({
+    super.key,
+    this.editingId,
+    this.initialName,
+    this.initialFlat,
+    this.initialPhone,
+    this.initialSocietyId,
+  });
 
   @override
   ConsumerState<AddCustomerSheet> createState() => _AddCustomerSheetState();
@@ -17,7 +31,17 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   final _nameCtrl = TextEditingController();
   final _flatCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  int? _selectedSocietyId;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialName != null) _nameCtrl.text = widget.initialName!;
+    if (widget.initialFlat != null) _flatCtrl.text = widget.initialFlat!;
+    if (widget.initialPhone != null) _phoneCtrl.text = widget.initialPhone!;
+    _selectedSocietyId = widget.initialSocietyId;
+  }
 
   @override
   void dispose() {
@@ -30,16 +54,28 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final db = ref.read(databaseProvider);
     try {
-      await ref.read(databaseProvider).insertCustomer(
-            CustomersCompanion.insert(
-              name: _nameCtrl.text.trim(),
-              flatNumber: _flatCtrl.text.trim(),
-              phone: Value(_phoneCtrl.text.trim().isEmpty
-                  ? null
-                  : _phoneCtrl.text.trim()),
-            ),
-          );
+      if (widget.editingId != null) {
+        await db.updateCustomer(CustomersCompanion(
+          id: Value(widget.editingId!),
+          name: Value(_nameCtrl.text.trim()),
+          flatNumber: Value(_flatCtrl.text.trim()),
+          phone: Value(_phoneCtrl.text.trim().isEmpty
+              ? null
+              : _phoneCtrl.text.trim()),
+          societyId: Value(_selectedSocietyId),
+        ));
+      } else {
+        await db.insertCustomer(CustomersCompanion.insert(
+          name: _nameCtrl.text.trim(),
+          flatNumber: _flatCtrl.text.trim(),
+          phone: Value(_phoneCtrl.text.trim().isEmpty
+              ? null
+              : _phoneCtrl.text.trim()),
+          societyId: Value(_selectedSocietyId),
+        ));
+      }
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -49,6 +85,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final societies = ref.watch(societiesProvider).valueOrNull ?? [];
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -81,7 +118,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                     ),
                   ),
                   Text(
-                    'Add New Customer',
+                    widget.editingId != null ? 'Edit Customer' : 'Add New Customer',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -120,6 +157,25 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int?>(
+                    initialValue: _selectedSocietyId,
+                    decoration: const InputDecoration(
+                      labelText: 'Society (Optional)',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('No Society'),
+                      ),
+                      ...societies.map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.name),
+                          )),
+                    ],
+                    onChanged: (v) => setState(() => _selectedSocietyId = v),
+                  ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -142,7 +198,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                               ),
                             )
                           : Text(
-                              'Add Customer',
+                              widget.editingId != null ? 'Save Changes' : 'Add Customer',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
