@@ -460,6 +460,14 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'hisaab_kitaab.db'));
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (db) {
+        // Transparent encryption key — must be the first statement executed.
+        // On fresh installs this creates an encrypted database.
+        // Existing unencrypted databases must be re-created on first upgrade.
+        db.execute("PRAGMA key='hk@pressbook2024!'");
+      },
+    );
   });
 }

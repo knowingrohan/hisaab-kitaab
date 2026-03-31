@@ -21,13 +21,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _businessNameCtrl = TextEditingController();
   final _upiIdCtrl = TextEditingController();
   final _thresholdCtrl = TextEditingController();
+  final _templateCtrl = TextEditingController();
   bool _loaded = false;
+
+  static const _defaultTemplate =
+      'Namaste {customer_name}! Aapka pressing ka bill ₹{amount} ho gaya hai. '
+      'Kripya payment kar dein. - {business_name}';
 
   @override
   void dispose() {
     _businessNameCtrl.dispose();
     _upiIdCtrl.dispose();
     _thresholdCtrl.dispose();
+    _templateCtrl.dispose();
     super.dispose();
   }
 
@@ -36,8 +42,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _businessNameCtrl.text = settings['business_name'] ?? '';
       _upiIdCtrl.text = settings['upi_id'] ?? '';
       _thresholdCtrl.text = settings['alert_threshold'] ?? '200';
+      _templateCtrl.text = settings['whatsapp_template'] ?? _defaultTemplate;
       _loaded = true;
     }
+  }
+
+  void _insertVariable(String variable) {
+    final text = _templateCtrl.text;
+    final sel = _templateCtrl.selection;
+    final start = sel.start < 0 ? text.length : sel.start;
+    final end = sel.end < 0 ? text.length : sel.end;
+    final newText = text.replaceRange(start, end, variable);
+    _templateCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + variable.length),
+    );
   }
 
   Future<void> _saveSetting(String key, String value) async {
@@ -420,6 +439,139 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── WhatsApp Template ─────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(6),
+                  blurRadius: 12,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'WHATSAPP REMINDER TEMPLATE',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _templateCtrl,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Type your reminder message...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Tap a variable to insert it:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    '{customer_name}',
+                    '{amount}',
+                    '{business_name}',
+                  ]
+                      .map((v) => ActionChip(
+                            label: Text(v,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                )),
+                            onPressed: () => _insertVariable(v),
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 14),
+                // Live preview
+                AnimatedBuilder(
+                  animation: _templateCtrl,
+                  builder: (context, _) {
+                    final businessName =
+                        _businessNameCtrl.text.isNotEmpty
+                            ? _businessNameCtrl.text
+                            : 'My Press Shop';
+                    final preview = _templateCtrl.text
+                        .replaceAll('{customer_name}', 'Ramesh Sharma')
+                        .replaceAll('{amount}', '450')
+                        .replaceAll('{business_name}', businessName);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Preview:',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCF8C6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            preview.isEmpty
+                                ? 'Your message preview will appear here'
+                                : preview,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF1A3C1A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _templateCtrl.text = _defaultTemplate),
+                      child: const Text('Reset Default'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () {
+                        _saveSetting('whatsapp_template',
+                            _templateCtrl.text.trim());
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('WhatsApp template saved')),
+                        );
+                      },
+                      child: const Text('Save Template'),
                     ),
                   ],
                 ),
