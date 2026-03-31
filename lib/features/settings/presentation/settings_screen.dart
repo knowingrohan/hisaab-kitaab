@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
+import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 
 final _settingsProvider = StreamProvider<Map<String, String>>((ref) {
@@ -728,6 +729,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             );
           }),
+
+          const SizedBox(height: 16),
+
+          // ── Data Export ───────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DATA EXPORT',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final customers = await ref
+                          .read(databaseProvider)
+                          .watchCustomersWithBalance()
+                          .first;
+                      if (customers.isEmpty && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('No customers to export')),
+                        );
+                        return;
+                      }
+                      await CsvExporter.shareAllCustomers(customers);
+                    },
+                    icon: const Icon(Icons.download_outlined),
+                    label: const Text('Export All Customers (CSV)'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: const BorderSide(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 32),
 

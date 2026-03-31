@@ -54,8 +54,8 @@
 - [x] Edit/delete entry
 - [x] WhatsApp template editor
 - [x] SQLCipher encryption
-- [ ] CSV export
-- [ ] Zero-balance badge
+- [x] CSV export
+- [x] Zero-balance badge
 
 ## M4 - Cloud Backup
 - [ ] Firebase Auth (phone OTP)
@@ -85,3 +85,5 @@
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 5 — Edit/Delete Entry: `deleteEntry/updateEntryWithItems` DAO methods; AddItemsSheet supports edit mode (existingEntryId/existingDate/existingQuantities params); TransactionTimeline entry cards gain PopupMenuButton (Edit/Delete); delete shows confirmation dialog; `flutter analyze` 0 issues | M4-Adhoc Unit 6: WhatsApp Template Editor |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 6 — WhatsApp Template Editor: `_templateCtrl` + `_defaultTemplate` constant + `_insertVariable()` in SettingsScreen; multi-line TextField; ActionChip variable inserters ({customer_name}, {amount}, {business_name}); AnimatedBuilder live preview (WhatsApp green bubble with sample values); Reset Default + Save Template buttons; template persisted to `whatsapp_template` app_settings key; `flutter analyze` 0 issues | M4-Adhoc Unit 7: SQLCipher Encryption |
 | 2026-03-31 | Session 4 | M4-Adhoc Unit 7 — SQLCipher Encryption: swapped `sqlite3_flutter_libs` → `sqlcipher_flutter_libs 0.5.7`; `NativeDatabase.createInBackground` gains `setup` callback executing `PRAGMA key='hk@pressbook2024!'` as first statement for transparent encryption; `flutter analyze` 0 issues; APK builds cleanly | M4-Adhoc Unit 8: CSV Export |
+| 2026-03-31 | Session 4 | M4-Adhoc Unit 8 — CSV Export: added `csv: ^6.0.0`; new `CsvExporter` utility with `shareAllCustomers` (summary CSV) and `shareCustomerTransactions` (per-customer CSV with header + transaction rows); shared via `share_plus Share.shareXFiles` with temp file; Settings screen gains "DATA EXPORT" section with Export All Customers button; CustomerDetailScreen popup menu gains "Export CSV" item; `flutter analyze` 0 issues | M4-Adhoc Unit 9: Zero-Balance Badge |
+| 2026-03-31 | Session 4 | M4-Adhoc Unit 9 — Zero-Balance Badge: CustomerCard replaces plain "SETTLED" text with green bordered chip (check_circle icon + "SETTLED" label, color #059669) when balance ≤ 0; DUE/OVERDUE text unchanged; `flutter analyze` 0 issues; APK builds cleanly | M3: PDF Invoice |

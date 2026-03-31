@@ -162,21 +162,50 @@ class CustomerCard extends ConsumerWidget {
                           fontSize: 22,
                         ),
                       ),
-                      Text(
-                        isOverdue
-                            ? 'OVERDUE'
-                            : customer.balance > 0
-                                ? 'DUE'
-                                : 'SETTLED',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: isOverdue
-                              ? AppColors.error.withAlpha(153)
-                              : AppColors.secondary.withAlpha(153),
-                          fontSize: 10,
-                          letterSpacing: 0.5,
+                      if (customer.balance <= 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669).withAlpha(25),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFF059669).withAlpha(80),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                size: 10,
+                                color: Color(0xFF059669),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'SETTLED',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF059669),
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          isOverdue ? 'OVERDUE' : 'DUE',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isOverdue
+                                ? AppColors.error.withAlpha(153)
+                                : AppColors.secondary.withAlpha(153),
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ],

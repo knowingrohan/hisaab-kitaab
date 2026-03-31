@@ -8,6 +8,7 @@ import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
 import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_timeline.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
@@ -209,6 +210,16 @@ class CustomerDetailScreen extends ConsumerWidget {
           onDelete: () => _confirmDelete(context, ref, customer),
           onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
           onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
+          onExportCsv: () {
+            final transactions = transactionsAsync.valueOrNull;
+            if (transactions == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Transactions still loading')),
+              );
+              return;
+            }
+            CsvExporter.shareCustomerTransactions(customer, transactions);
+          },
         );
       },
     );
@@ -225,6 +236,7 @@ class _DetailView extends StatelessWidget {
   final VoidCallback onDelete;
   final void Function(EntryTransaction) onEditEntry;
   final void Function(EntryTransaction) onDeleteEntry;
+  final VoidCallback onExportCsv;
 
   const _DetailView({
     required this.customer,
@@ -236,6 +248,7 @@ class _DetailView extends StatelessWidget {
     required this.onDelete,
     required this.onEditEntry,
     required this.onDeleteEntry,
+    required this.onExportCsv,
   });
 
   @override
@@ -272,9 +285,14 @@ class _DetailView extends StatelessWidget {
             onSelected: (value) {
               if (value == 'edit') onEdit();
               if (value == 'delete') onDelete();
+              if (value == 'export_csv') onExportCsv();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'edit', child: Text('Edit Customer')),
+              PopupMenuItem(
+                value: 'export_csv',
+                child: Text('Export CSV'),
+              ),
               PopupMenuItem(
                 value: 'delete',
                 child: Text('Delete Customer',
