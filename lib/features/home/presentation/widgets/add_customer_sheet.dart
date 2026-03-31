@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
+import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 
 class AddCustomerSheet extends ConsumerStatefulWidget {
   final int? editingId;
   final String? initialName;
   final String? initialFlat;
   final String? initialPhone;
+  final int? initialSocietyId;
 
   const AddCustomerSheet({
     super.key,
@@ -17,6 +19,7 @@ class AddCustomerSheet extends ConsumerStatefulWidget {
     this.initialName,
     this.initialFlat,
     this.initialPhone,
+    this.initialSocietyId,
   });
 
   @override
@@ -28,6 +31,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   final _nameCtrl = TextEditingController();
   final _flatCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  int? _selectedSocietyId;
   bool _saving = false;
 
   @override
@@ -36,6 +40,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
     if (widget.initialName != null) _nameCtrl.text = widget.initialName!;
     if (widget.initialFlat != null) _flatCtrl.text = widget.initialFlat!;
     if (widget.initialPhone != null) _phoneCtrl.text = widget.initialPhone!;
+    _selectedSocietyId = widget.initialSocietyId;
   }
 
   @override
@@ -59,6 +64,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
           phone: Value(_phoneCtrl.text.trim().isEmpty
               ? null
               : _phoneCtrl.text.trim()),
+          societyId: Value(_selectedSocietyId),
         ));
       } else {
         await db.insertCustomer(CustomersCompanion.insert(
@@ -67,6 +73,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
           phone: Value(_phoneCtrl.text.trim().isEmpty
               ? null
               : _phoneCtrl.text.trim()),
+          societyId: Value(_selectedSocietyId),
         ));
       }
       if (mounted) Navigator.of(context).pop();
@@ -78,6 +85,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final societies = ref.watch(societiesProvider).valueOrNull ?? [];
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -148,6 +156,25 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                       hintText: 'e.g. 98765 43210',
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int?>(
+                    initialValue: _selectedSocietyId,
+                    decoration: const InputDecoration(
+                      labelText: 'Society (Optional)',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('No Society'),
+                      ),
+                      ...societies.map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.name),
+                          )),
+                    ],
+                    onChanged: (v) => setState(() => _selectedSocietyId = v),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(

@@ -1,7 +1,10 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hisaab_kitaab/core/database/app_database.dart';
 import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
+import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 
 final _settingsProvider = StreamProvider<Map<String, String>>((ref) {
   return ref.watch(databaseProvider).watchSettings();
@@ -39,6 +42,97 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _saveSetting(String key, String value) async {
     await ref.read(databaseProvider).setSetting(key, value);
+  }
+
+  Future<void> _showSocietyDialog({Society? existing}) async {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final addressCtrl = TextEditingController(text: existing?.address ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(existing == null ? 'Add Society' : 'Edit Society'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Society Name'),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: addressCtrl,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                  labelText: 'Address (Optional)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final db = ref.read(databaseProvider);
+    if (existing == null) {
+      await db.insertSociety(SocietiesCompanion.insert(
+        name: name,
+        address: Value(addressCtrl.text.trim().isEmpty
+            ? null
+            : addressCtrl.text.trim()),
+      ));
+    } else {
+      await db.updateSociety(SocietiesCompanion(
+        id: Value(existing.id),
+        name: Value(name),
+        address: Value(addressCtrl.text.trim().isEmpty
+            ? null
+            : addressCtrl.text.trim()),
+      ));
+    }
+  }
+
+  Future<void> _deleteSociety(Society society) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Society'),
+        content: Text('Delete "${society.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await ref.read(databaseProvider).deleteSociety(society.id);
+    if (!deleted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Cannot delete — customers are assigned to this society')),
+      );
+    }
   }
 
   @override
@@ -240,6 +334,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 16),
+
+          // ── Societies ─────────────────────────────────────────────────
+          Consumer(builder: (context, ref, _) {
+            final societies = ref.watch(societiesProvider).valueOrNull ?? [];
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(6),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'SOCIETIES',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showSocietyDialog(),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  if (societies.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'No societies added yet.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  else
+                    ...societies.map((s) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.location_city_outlined),
+                          title: Text(s.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600)),
+                          subtitle: s.address != null && s.address!.isNotEmpty
+                              ? Text(s.address!)
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined,
+                                    size: 20),
+                                onPressed: () =>
+                                    _showSocietyDialog(existing: s),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    size: 20, color: AppColors.error),
+                                onPressed: () => _deleteSociety(s),
+                              ),
+                            ],
+                          ),
+                        )),
+                ],
+              ),
+            );
+          }),
 
           const SizedBox(height: 32),
 

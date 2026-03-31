@@ -45,6 +45,7 @@ class CustomerDetailScreen extends ConsumerWidget {
         initialName: c.name,
         initialFlat: c.flatNumber,
         initialPhone: c.phone,
+        initialSocietyId: c.societyId,
       ),
     );
   }

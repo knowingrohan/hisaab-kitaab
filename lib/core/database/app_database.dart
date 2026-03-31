@@ -114,6 +114,26 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // ── Society DAO ───────────────────────────────────────────────────────────
+
+  Stream<List<Society>> watchSocieties() =>
+      (select(societies)..orderBy([(s) => OrderingTerm.asc(s.name)])).watch();
+
+  Future<int> insertSociety(SocietiesCompanion companion) =>
+      into(societies).insert(companion);
+
+  Future<void> updateSociety(SocietiesCompanion companion) =>
+      update(societies).replace(companion);
+
+  Future<bool> deleteSociety(int id) async {
+    final linked = await (select(customers)
+          ..where((c) => c.societyId.equals(id)))
+        .get();
+    if (linked.isNotEmpty) return false;
+    await (delete(societies)..where((s) => s.id.equals(id))).go();
+    return true;
+  }
+
   // ── Customer DAO ──────────────────────────────────────────────────────────
 
   Future<int> insertCustomer(CustomersCompanion companion) =>
