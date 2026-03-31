@@ -11,12 +11,18 @@ class AddItemsSheet extends ConsumerStatefulWidget {
   final int customerId;
   final String customerName;
   final String flatNumber;
+  final int? existingEntryId;
+  final DateTime? existingDate;
+  final Map<int, int>? existingQuantities; // itemTypeId -> quantity
 
   const AddItemsSheet({
     super.key,
     required this.customerId,
     required this.customerName,
     required this.flatNumber,
+    this.existingEntryId,
+    this.existingDate,
+    this.existingQuantities,
   });
 
   @override
@@ -24,8 +30,15 @@ class AddItemsSheet extends ConsumerStatefulWidget {
 }
 
 class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
-  final Map<int, int> _quantities = {}; // itemTypeId -> quantity
-  DateTime _selectedDate = DateTime.now();
+  late final Map<int, int> _quantities; // itemTypeId -> quantity
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantities = Map<int, int>.from(widget.existingQuantities ?? {});
+    _selectedDate = widget.existingDate ?? DateTime.now();
+  }
 
   // Custom "other" item fields
   final _customNameCtrl = TextEditingController();
@@ -110,11 +123,20 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(databaseProvider).insertEntryWithItems(
-            customerId: widget.customerId,
-            entryDate: _selectedDate,
-            items: items,
-          );
+      final db = ref.read(databaseProvider);
+      if (widget.existingEntryId != null) {
+        await db.updateEntryWithItems(
+          entryId: widget.existingEntryId!,
+          entryDate: _selectedDate,
+          items: items,
+        );
+      } else {
+        await db.insertEntryWithItems(
+          customerId: widget.customerId,
+          entryDate: _selectedDate,
+          items: items,
+        );
+      }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -176,7 +198,7 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Add Items',
+                        widget.existingEntryId != null ? 'Edit Entry' : 'Add Items',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -314,7 +336,7 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
                           )
                         : const Icon(Icons.save),
                     label: Text(
-                      'Save Entry',
+                      widget.existingEntryId != null ? 'Update Entry' : 'Save Entry',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.onTertiaryFixed,

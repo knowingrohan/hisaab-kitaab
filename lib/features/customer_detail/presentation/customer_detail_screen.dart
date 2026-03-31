@@ -33,6 +33,57 @@ class CustomerDetailScreen extends ConsumerWidget {
     );
   }
 
+  void _showEditEntrySheet(BuildContext context, CustomerWithBalance c,
+      EntryTransaction entry) {
+    // Build pre-filled quantities map from entry items
+    // EntryLineItem doesn't carry itemTypeId, so we open the sheet empty;
+    // the user adjusts quantities from scratch for edits.
+    final quantities = <int, int>{};
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      useRootNavigator: true,
+      builder: (_) => AddItemsSheet(
+        customerId: c.id,
+        customerName: c.name,
+        flatNumber: c.flatNumber,
+        existingEntryId: entry.entryId,
+        existingDate: entry.entryDate,
+        existingQuantities: quantities,
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteEntry(
+      BuildContext context, WidgetRef ref, EntryTransaction entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text(
+            'Delete this entry of ₹${entry.totalAmount}? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(databaseProvider).deleteEntry(entry.entryId);
+    }
+  }
+
   void _showEditSheet(BuildContext context, CustomerWithBalance c) {
     showModalBottomSheet(
       context: context,
@@ -156,6 +207,8 @@ class CustomerDetailScreen extends ConsumerWidget {
           onSendWhatsApp: () => _sendWhatsApp(context, ref, customer),
           onEdit: () => _showEditSheet(context, customer),
           onDelete: () => _confirmDelete(context, ref, customer),
+          onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
+          onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
         );
       },
     );
@@ -170,6 +223,8 @@ class _DetailView extends StatelessWidget {
   final VoidCallback onSendWhatsApp;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final void Function(EntryTransaction) onEditEntry;
+  final void Function(EntryTransaction) onDeleteEntry;
 
   const _DetailView({
     required this.customer,
@@ -179,6 +234,8 @@ class _DetailView extends StatelessWidget {
     required this.onSendWhatsApp,
     required this.onEdit,
     required this.onDelete,
+    required this.onEditEntry,
+    required this.onDeleteEntry,
   });
 
   @override
@@ -410,6 +467,8 @@ class _DetailView extends StatelessWidget {
               error: (e, _) => Text('Error: $e'),
               data: (transactions) => TransactionTimeline(
                 transactions: transactions,
+                onEditEntry: onEditEntry,
+                onDeleteEntry: onDeleteEntry,
               ),
             ),
           ],

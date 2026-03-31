@@ -395,6 +395,41 @@ class AppDatabase extends _$AppDatabase {
     return all;
   }
 
+  Future<void> deleteEntry(int entryId) async {
+    await transaction(() async {
+      await (delete(entryItems)..where((i) => i.entryId.equals(entryId))).go();
+      await (delete(entries)..where((e) => e.id.equals(entryId))).go();
+    });
+  }
+
+  Future<void> updateEntryWithItems({
+    required int entryId,
+    required DateTime entryDate,
+    required List<EntryItemInput> items,
+  }) async {
+    final totalAmount =
+        items.fold(0, (sum, item) => sum + item.quantity * item.rate);
+    await transaction(() async {
+      await (delete(entryItems)..where((i) => i.entryId.equals(entryId))).go();
+      await (update(entries)..where((e) => e.id.equals(entryId))).write(
+        EntriesCompanion(
+          entryDate: Value(entryDate),
+          totalAmount: Value(totalAmount),
+        ),
+      );
+      for (final item in items) {
+        await into(entryItems).insert(EntryItemsCompanion.insert(
+          entryId: entryId,
+          itemTypeId: Value(item.itemTypeId),
+          itemName: Value(item.itemName),
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
+        ));
+      }
+    });
+  }
+
   // ── Payment DAO ───────────────────────────────────────────────────────────
 
   Future<int> insertPayment(PaymentsCompanion companion) =>
