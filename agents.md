@@ -46,6 +46,15 @@
 - [ ] Monthly summary PDF
 - [ ] Share via WhatsApp
 
+## M4 - Cloud Backup(Google Drive) ✅
+- [x] `google_sign_in`, `googleapis`, `extension_google_sign_in_as_googleapis_auth` added to pubspec
+- [x] INTERNET permission added to AndroidManifest.xml
+- [x] `AppDatabase.checkpoint()` — WAL flush before backup
+- [x] `DriveBackupHelper` singleton (`core/utils/drive_backup_helper.dart`) — sign-in, backup whole .db to Drive appDataFolder, restore with db.close + file swap, getLastBackupTime
+- [x] `BackupNotifier` / `backupProvider` (`features/settings/providers/backup_provider.dart`)
+- [x] DATA BACKUP card in SettingsScreen — sign-in flow, back-up-now, restore from Drive, last backup time display
+- [x] Google Cloud Console OAuth setup (manual one-time by developer)
+
 ## M4-Adhoc - Missing FRs
 - [x] Edit/delete customer
 - [x] Society management UI
@@ -57,11 +66,6 @@
 - [x] CSV export
 - [x] Zero-balance badge
 
-## M4 - Cloud Backup
-- [ ] Firebase Auth (phone OTP)
-- [ ] Firestore sync engine
-- [ ] Restore flow
-- [ ] Backup status in Settings
 
 ## M5 - Polish
 - [ ] App lock (PIN)
