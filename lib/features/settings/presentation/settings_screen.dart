@@ -1,20 +1,14 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/app_database.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/models/society.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/society_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/app_lock/presentation/pin_lock_screen.dart';
 import 'package:hisaab_kitaab/features/app_lock/providers/app_lock_provider.dart';
-import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
-import 'package:hisaab_kitaab/features/settings/providers/backup_provider.dart';
-import 'package:hisaab_kitaab/core/utils/backup_scheduler.dart';
 import 'package:hisaab_kitaab/core/providers/locale_provider.dart';
-
-final _settingsProvider = StreamProvider<Map<String, String>>((ref) {
-  return ref.watch(databaseProvider).watchSettings();
-});
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -43,12 +37,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
-  void _loadSettings(Map<String, String> settings) {
+  void _loadConfig(AppConfig config) {
     if (!_loaded) {
-      _businessNameCtrl.text = settings['business_name'] ?? '';
-      _upiIdCtrl.text = settings['upi_id'] ?? '';
-      _thresholdCtrl.text = settings['alert_threshold'] ?? '200';
-      _templateCtrl.text = settings['whatsapp_template'] ?? _defaultTemplate;
+      _businessNameCtrl.text = config.businessName;
+      _upiIdCtrl.text = config.upiId ?? '';
+      _thresholdCtrl.text = '${config.thresholdAmount}';
+      _templateCtrl.text = config.whatsappTemplate ?? _defaultTemplate;
       _loaded = true;
     }
   }
@@ -65,126 +59,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _saveSetting(String key, String value) async {
-    await ref.read(databaseProvider).setSetting(key, value);
-  }
-
-  Future<void> _showItemTypeDialog({ItemType? existing}) async {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final rateCtrl =
-        TextEditingController(text: existing != null ? '${existing.rate}' : '');
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Add Item Type' : 'Edit Item Type'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Item Name'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: rateCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Rate (₹)',
-                prefixText: '₹ ',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final name = nameCtrl.text.trim();
-    final rate = int.tryParse(rateCtrl.text.trim()) ?? 0;
-    if (name.isEmpty || rate <= 0) return;
-    final db = ref.read(databaseProvider);
-    if (existing == null) {
-      await db.insertItemType(ItemTypesCompanion.insert(name: name, rate: rate));
-    } else {
-      await db.updateItemType(ItemTypesCompanion(
-        id: Value(existing.id),
-        name: Value(name),
-        rate: Value(rate),
-        iconName: Value(existing.iconName),
-        sortOrder: Value(existing.sortOrder),
-        isActive: const Value(true),
-      ));
-    }
-  }
-
-  Future<void> _deactivateItemType(
-      ItemType item, List<ItemType> allActive) async {
-    if (allActive.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('At least one item type must remain active')),
-      );
-      return;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove Item Type'),
-        content: Text('Remove "${item.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await ref.read(databaseProvider).deactivateItemType(item.id);
-    }
+  Future<void> _upsert(Map<String, dynamic> updates) async {
+    await ref.read(configRepositoryProvider).upsert(updates);
   }
 
   Future<void> _showSocietyDialog({Society? existing}) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final addressCtrl = TextEditingController(text: existing?.address ?? '');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(existing == null ? 'Add Society' : 'Edit Society'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Society Name'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: addressCtrl,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                  labelText: 'Address (Optional)'),
-            ),
-          ],
+        content: TextField(
+          controller: nameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Society Name'),
+          autofocus: true,
         ),
         actions: [
           TextButton(
@@ -201,76 +90,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed != true || !mounted) return;
     final name = nameCtrl.text.trim();
     if (name.isEmpty) return;
-    final db = ref.read(databaseProvider);
+    final repo = ref.read(societyRepositoryProvider);
     if (existing == null) {
-      await db.insertSociety(SocietiesCompanion.insert(
-        name: name,
-        address: Value(addressCtrl.text.trim().isEmpty
-            ? null
-            : addressCtrl.text.trim()),
-      ));
+      await repo.add(name);
     } else {
-      await db.updateSociety(SocietiesCompanion(
-        id: Value(existing.id),
-        name: Value(name),
-        address: Value(addressCtrl.text.trim().isEmpty
-            ? null
-            : addressCtrl.text.trim()),
-      ));
+      await repo.rename(existing.id, name);
     }
-  }
-
-  String _formatDate(DateTime dt) {
-    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _handleAppLockToggle(bool enable, bool isCurrentlyEnabled) async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (enable) {
-      final pin = await showPinSetupSheet(context);
-      if (pin == null || !mounted) return;
-      await ref.read(appLockProvider.notifier).enableLock(pin);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('App lock enabled')),
-      );
-    } else {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Disable App Lock'),
-          content: const Text(
-              'Are you sure you want to remove PIN protection?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: Colors.white),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Disable'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !mounted) return;
-      await ref.read(appLockProvider.notifier).disableLock();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('App lock disabled')),
-      );
-    }
-  }
-
-  Future<void> _handleChangePin() async {
-    final messenger = ScaffoldMessenger.of(context);
-    final pin = await showPinSetupSheet(context);
-    if (pin == null || !mounted) return;
-    await ref.read(appLockProvider.notifier).changePin(pin);
-    messenger.showSnackBar(
-      const SnackBar(content: Text('PIN updated')),
-    );
   }
 
   Future<void> _deleteSociety(Society society) async {
@@ -286,8 +111,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white),
+                backgroundColor: AppColors.error, foregroundColor: Colors.white),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete'),
           ),
@@ -295,22 +119,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final deleted = await ref.read(databaseProvider).deleteSociety(society.id);
-    if (!deleted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Cannot delete — customers are assigned to this society')),
-      );
+    try {
+      await ref.read(societyRepositoryProvider).delete(society.id);
+    } on Exception catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Cannot delete — customers are assigned to this society')),
+        );
+      }
     }
+  }
+
+  Future<void> _handleAppLockToggle(bool enable) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (enable) {
+      final pin = await showPinSetupSheet(context);
+      if (pin == null || !mounted) return;
+      await ref.read(appLockProvider.notifier).enableLock(pin);
+      messenger.showSnackBar(const SnackBar(content: Text('App lock enabled')));
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Disable App Lock'),
+          content: const Text('Are you sure you want to remove PIN protection?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error, foregroundColor: Colors.white),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Disable'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await ref.read(appLockProvider.notifier).disableLock();
+      messenger.showSnackBar(const SnackBar(content: Text('App lock disabled')));
+    }
+  }
+
+  Future<void> _handleChangePin() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final pin = await showPinSetupSheet(context);
+    if (pin == null || !mounted) return;
+    await ref.read(appLockProvider.notifier).changePin(pin);
+    messenger.showSnackBar(const SnackBar(content: Text('PIN updated')));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settingsAsync = ref.watch(_settingsProvider);
+    final configAsync = ref.watch(appConfigProvider);
 
-    settingsAsync.whenData(_loadSettings);
+    configAsync.whenData((config) {
+      if (config != null) _loadConfig(config);
+    });
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -318,7 +187,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          'Hisaab Kitaab',
+          'Settings',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: AppColors.primary,
@@ -346,29 +215,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         children: [
           // ── Business Identity ─────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(6),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'BUSINESS IDENTITY',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                _sectionLabel(theme, 'BUSINESS IDENTITY'),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _businessNameCtrl,
@@ -378,7 +229,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     hintText: 'e.g. Raju Press Wala',
                     prefixIcon: Icon(Icons.store_outlined),
                   ),
-                  onSubmitted: (v) => _saveSetting('business_name', v.trim()),
+                  onSubmitted: (v) => _upsert({'business_name': v.trim()}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -388,25 +239,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     hintText: 'e.g. raju@paytm',
                     prefixIcon: Icon(Icons.qr_code_2),
                   ),
-                  onSubmitted: (v) => _saveSetting('upi_id', v.trim()),
+                  onSubmitted: (v) => _upsert({'upi_id': v.trim()}),
                 ),
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () {
-                      _saveSetting('business_name',
-                          _businessNameCtrl.text.trim());
-                      _saveSetting('upi_id', _upiIdCtrl.text.trim());
+                      _upsert({
+                        'business_name': _businessNameCtrl.text.trim(),
+                        'upi_id': _upiIdCtrl.text.trim(),
+                      });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Business details saved')),
+                        const SnackBar(content: Text('Business details saved')),
                       );
                     },
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                       side: const BorderSide(color: AppColors.primary),
                     ),
                     child: const Text('Save Details'),
@@ -419,23 +269,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ── Language ──────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(24),
-            ),
+          _card(
+            elevated: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'LANGUAGE',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                _sectionLabel(theme, 'LANGUAGE'),
                 const SizedBox(height: 14),
                 Consumer(builder: (context, ref, _) {
                   final locale = ref.watch(localeNotifierProvider);
@@ -446,25 +285,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: selected,
                         isExpanded: true,
                         items: const [
+                          DropdownMenuItem(value: 'en', child: Text('English')),
                           DropdownMenuItem(
-                              value: 'en', child: Text('English')),
-                          DropdownMenuItem(
-                              value: 'hi',
-                              child: Text('हिंदी (Hindi)')),
+                              value: 'hi', child: Text('हिंदी (Hindi)')),
                         ],
                         onChanged: (val) {
                           if (val != null) {
                             ref
                                 .read(localeNotifierProvider.notifier)
                                 .setLocale(val);
+                            _upsert({'language': val});
                           }
                         },
                       ),
@@ -478,23 +316,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ── Smart Reminders ───────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(24),
-            ),
+          _card(
+            elevated: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'SMART REMINDERS',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                _sectionLabel(theme, 'SMART REMINDERS'),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -502,17 +329,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Alert Threshold',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            'Send reminder above',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                          ),
+                          Text('Alert Threshold',
+                              style: theme.textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                          Text('Mark customer overdue above this amount',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.onSurfaceVariant)),
                         ],
                       ),
                     ),
@@ -524,35 +346,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: AppColors.surfaceContainerLowest,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: AppColors.primary.withAlpha(51),
-                        ),
+                            color: AppColors.primary.withAlpha(51)),
                       ),
                       child: Row(
                         children: [
-                          Text(
-                            '₹',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
-                          ),
+                          const Text('₹',
+                              style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16)),
                           Expanded(
                             child: TextField(
                               controller: _thresholdCtrl,
                               keyboardType: TextInputType.number,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w800,
-                              ),
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800),
                               decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                                filled: false,
-                              ),
-                              onSubmitted: (v) =>
-                                  _saveSetting('alert_threshold', v.trim()),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  filled: false),
+                              onSubmitted: (v) {
+                                final val = int.tryParse(v.trim());
+                                if (val != null) {
+                                  _upsert({'threshold_amount': val});
+                                }
+                              },
                             ),
                           ),
                         ],
@@ -567,29 +387,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ── WhatsApp Template ─────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(6),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'WHATSAPP REMINDER TEMPLATE',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                _sectionLabel(theme, 'WHATSAPP REMINDER TEMPLATE'),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _templateCtrl,
@@ -598,44 +400,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   decoration: InputDecoration(
                     hintText: 'Type your reminder message...',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'Tap a variable to insert it:',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
+                Text('Tap a variable to insert it:',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.onSurfaceVariant)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children: [
-                    '{customer_name}',
-                    '{amount}',
-                    '{business_name}',
-                  ]
+                  children: ['{customer_name}', '{amount}', '{business_name}']
                       .map((v) => ActionChip(
                             label: Text(v,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                )),
+                                style: theme.textTheme.labelSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700)),
                             onPressed: () => _insertVariable(v),
                           ))
                       .toList(),
                 ),
                 const SizedBox(height: 14),
-                // Live preview
                 AnimatedBuilder(
                   animation: _templateCtrl,
                   builder: (context, _) {
-                    final businessName =
-                        _businessNameCtrl.text.isNotEmpty
-                            ? _businessNameCtrl.text
-                            : 'My Press Shop';
+                    final businessName = _businessNameCtrl.text.isNotEmpty
+                        ? _businessNameCtrl.text
+                        : 'My Press Shop';
                     final preview = _templateCtrl.text
                         .replaceAll('{customer_name}', 'Ramesh Sharma')
                         .replaceAll('{amount}', '450')
@@ -643,13 +434,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Preview:',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        Text('Preview:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                                fontWeight: FontWeight.w700)),
                         const SizedBox(height: 6),
                         Container(
                           width: double.infinity,
@@ -662,9 +450,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             preview.isEmpty
                                 ? 'Your message preview will appear here'
                                 : preview,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF1A3C1A),
-                            ),
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: const Color(0xFF1A3C1A)),
                           ),
                         ),
                       ],
@@ -682,11 +469,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const Spacer(),
                     FilledButton(
                       onPressed: () {
-                        _saveSetting('whatsapp_template',
-                            _templateCtrl.text.trim());
+                        _upsert({'whatsapp_template': _templateCtrl.text.trim()});
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('WhatsApp template saved')),
+                          const SnackBar(content: Text('WhatsApp template saved')),
                         );
                       },
                       child: const Text('Save Template'),
@@ -699,105 +484,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // ── Item Types ────────────────────────────────────────────────
-          Consumer(builder: (context, ref, _) {
-            final itemTypesAsync = ref.watch(
-              StreamProvider<List<ItemType>>((ref) =>
-                  ref.watch(databaseProvider).watchItemTypes()),
-            );
-            final items = itemTypesAsync.valueOrNull ?? [];
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'ITEM TYPES & RATES',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _showItemTypeDialog(),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add'),
-                      ),
-                    ],
-                  ),
-                  ...items.map((item) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.checkroom_outlined),
-                        title: Text(item.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '₹${item.rate}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                              onPressed: () =>
-                                  _showItemTypeDialog(existing: item),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline,
-                                  size: 20, color: AppColors.error),
-                              onPressed: () =>
-                                  _deactivateItemType(item, items),
-                            ),
-                          ],
-                        ),
-                      )),
-                ],
-              ),
-            );
-          }),
-
-          const SizedBox(height: 16),
-
           // ── Societies ─────────────────────────────────────────────────
           Consumer(builder: (context, ref, _) {
             final societies = ref.watch(societiesProvider).valueOrNull ?? [];
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(6),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
+            return _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'SOCIETIES',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
+                      _sectionLabel(theme, 'SOCIETIES'),
                       TextButton.icon(
                         onPressed: () => _showSocietyDialog(),
                         icon: const Icon(Icons.add, size: 16),
@@ -810,9 +507,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         'No societies added yet.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                        ),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.onSurfaceVariant),
                       ),
                     )
                   else
@@ -820,19 +516,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.location_city_outlined),
                           title: Text(s.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
-                          subtitle: s.address != null && s.address!.isNotEmpty
-                              ? Text(s.address!)
-                              : null,
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined,
-                                    size: 20),
-                                onPressed: () =>
-                                    _showSocietyDialog(existing: s),
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                onPressed: () => _showSocietyDialog(existing: s),
                               ),
                               IconButton(
                                 icon: Icon(Icons.delete_outline,
@@ -850,31 +540,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ── Data Export ───────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(24),
-            ),
+          _card(
+            elevated: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'DATA EXPORT',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                _sectionLabel(theme, 'DATA EXPORT'),
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () async {
                       final customers = await ref
-                          .read(databaseProvider)
-                          .watchCustomersWithBalance()
+                          .read(customerRepositoryProvider)
+                          .watchAllWithBalance()
                           .first;
                       if (customers.isEmpty && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -888,8 +567,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: const Text('Export All Customers (CSV)'),
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                       side: const BorderSide(color: AppColors.primary),
                     ),
                   ),
@@ -900,154 +578,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // ── Data Backup ───────────────────────────────────────────────
-          Consumer(builder: (context, ref, _) {
-            final backupState = ref.watch(backupProvider);
-            final settings = ref.watch(_settingsProvider).valueOrNull ?? {};
-            final autoEnabled = settings['auto_backup_enabled'] == 'true';
-
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'DATA BACKUP',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (backupState.account == null) ...[
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.cloud_outlined),
-                      title: const Text('Sign in with Google'),
-                      subtitle:
-                          const Text('Back up your data to Google Drive'),
-                      trailing: backupState.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.chevron_right),
-                      onTap: backupState.isLoading
-                          ? null
-                          : () =>
-                              ref.read(backupProvider.notifier).signIn(),
-                    ),
-                  ] else ...[
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(
-                        radius: 16,
-                        child: Icon(Icons.person, size: 18),
-                      ),
-                      title: Text(backupState.account!.email),
-                      trailing: TextButton(
-                        onPressed: () =>
-                            ref.read(backupProvider.notifier).signOut(),
-                        child: const Text('Sign Out'),
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.backup_outlined),
-                      title: const Text('Back Up Now'),
-                      subtitle: backupState.lastBackupTime != null
-                          ? Text(
-                              'Last backup: ${_formatDate(backupState.lastBackupTime!)}')
-                          : const Text('No backup yet'),
-                      trailing: backupState.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.chevron_right),
-                      onTap: backupState.isLoading
-                          ? null
-                          : () =>
-                              ref.read(backupProvider.notifier).backup(),
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Auto Daily Backup'),
-                      subtitle:
-                          const Text('Automatically back up once a day'),
-                      value: autoEnabled,
-                      onChanged: (val) async {
-                        await ref
-                            .read(databaseProvider)
-                            .setSetting('auto_backup_enabled', val.toString());
-                        if (val) {
-                          await BackupScheduler.instance.scheduleDaily();
-                        } else {
-                          await BackupScheduler.instance.cancel();
-                        }
-                      },
-                    ),
-                    if (backupState.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          backupState.errorMessage!,
-                          style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            );
-          }),
-
-          const SizedBox(height: 16),
-
           // ── App Lock ──────────────────────────────────────────────────
           Consumer(builder: (context, ref, _) {
             final lockState = ref.watch(appLockProvider);
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(6),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
+            return _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'APP LOCK',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
+                  _sectionLabel(theme, 'APP LOCK'),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Enable PIN Lock'),
                     subtitle: const Text('Require PIN to open the app'),
                     value: lockState.isEnabled,
-                    onChanged: (val) =>
-                        _handleAppLockToggle(val, lockState.isEnabled),
+                    onChanged: _handleAppLockToggle,
                   ),
                   if (lockState.isEnabled) ...[
                     const Divider(height: 1),
@@ -1069,13 +614,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Center(
             child: Text(
               "Made for Bharat's Digital Dhobis",
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.outline,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(color: AppColors.outline),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _sectionLabel(ThemeData theme, String text) {
+    return Text(
+      text,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: AppColors.onSurfaceVariant,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.5,
+      ),
+    );
+  }
+
+  Widget _card({required Widget child, bool elevated = true}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: elevated
+            ? AppColors.surfaceContainerLowest
+            : AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: elevated
+            ? [
+                BoxShadow(
+                  color: Colors.black.withAlpha(6),
+                  blurRadius: 12,
+                ),
+              ]
+            : null,
+      ),
+      child: child,
     );
   }
 }

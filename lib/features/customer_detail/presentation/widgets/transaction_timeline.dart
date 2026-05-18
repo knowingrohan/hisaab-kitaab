@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:hisaab_kitaab/core/database/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/models/transaction_item.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 
 class TransactionTimeline extends StatelessWidget {
   final List<TransactionItem> transactions;
-  final void Function(EntryTransaction)? onEditEntry;
-  final void Function(EntryTransaction)? onDeleteEntry;
+  final void Function(TransactionItem)? onEditEntry;
+  final void Function(TransactionItem)? onDeleteEntry;
 
   const TransactionTimeline({
     super.key,
@@ -50,8 +50,8 @@ class TransactionTimeline extends StatelessWidget {
         return _TimelineItem(
           item: item,
           isLast: index == transactions.length - 1,
-          onEditEntry: onEditEntry,
-          onDeleteEntry: onDeleteEntry,
+          onEdit: item.isGave ? onEditEntry : null,
+          onDelete: item.isGave ? onDeleteEntry : null,
         );
       },
     );
@@ -61,41 +61,11 @@ class TransactionTimeline extends StatelessWidget {
 class _TimelineItem extends StatelessWidget {
   final TransactionItem item;
   final bool isLast;
-  final void Function(EntryTransaction)? onEditEntry;
-  final void Function(EntryTransaction)? onDeleteEntry;
+  final void Function(TransactionItem)? onEdit;
+  final void Function(TransactionItem)? onDelete;
 
   const _TimelineItem({
     required this.item,
-    required this.isLast,
-    this.onEditEntry,
-    this.onDeleteEntry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (item) {
-      EntryTransaction() => _EntryRow(
-          entry: item as EntryTransaction,
-          isLast: isLast,
-          onEdit: onEditEntry,
-          onDelete: onDeleteEntry,
-        ),
-      PaymentTransaction() =>
-        _PaymentRow(payment: item as PaymentTransaction, isLast: isLast),
-    };
-  }
-}
-
-// ── Entry Row ─────────────────────────────────────────────────────────────────
-
-class _EntryRow extends StatelessWidget {
-  final EntryTransaction entry;
-  final bool isLast;
-  final void Function(EntryTransaction)? onEdit;
-  final void Function(EntryTransaction)? onDelete;
-
-  const _EntryRow({
-    required this.entry,
     required this.isLast,
     this.onEdit,
     this.onDelete,
@@ -104,18 +74,23 @@ class _EntryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isGave = item.isGave;
+    const green = Color(0xFF1E7A45);
+
+    final accentColor = isGave ? AppColors.primary : green;
+    final bgBadge = isGave ? const Color(0xFFEFF6FF) : const Color(0xFFD1FAE5);
+    final badgeLabel = isGave ? 'Items Added' : 'Payment Received';
+    final amountText = isGave ? '₹${item.amount}' : '-₹${item.amount}';
 
     return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Timeline line
           _TimelineLine(
             color: AppColors.primary.withAlpha(40),
             isLast: isLast,
           ),
           const SizedBox(width: 8),
-          // Card
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -142,7 +117,7 @@ class _EntryRow extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _formatDate(entry.entryDate),
+                              _formatDate(item.date),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: AppColors.onSurfaceVariant,
                                 fontWeight: FontWeight.w700,
@@ -153,14 +128,13 @@ class _EntryRow extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color:
-                                    AppColors.primaryContainer.withAlpha(25),
+                                color: bgBadge,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                'Items Added',
+                                badgeLabel,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.primary,
+                                  color: accentColor,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.5,
                                 ),
@@ -173,19 +147,19 @@ class _EntryRow extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '₹${entry.totalAmount}',
+                            amountText,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: AppColors.onSurface,
+                              color: accentColor,
                             ),
                           ),
-                          if (onEdit != null || onDelete != null)
+                          if ((onEdit != null || onDelete != null))
                             PopupMenuButton<String>(
                               iconSize: 18,
                               padding: EdgeInsets.zero,
                               onSelected: (value) {
-                                if (value == 'edit') onEdit?.call(entry);
-                                if (value == 'delete') onDelete?.call(entry);
+                                if (value == 'edit') onEdit?.call(item);
+                                if (value == 'delete') onDelete?.call(item);
                               },
                               itemBuilder: (_) => [
                                 if (onEdit != null)
@@ -204,16 +178,29 @@ class _EntryRow extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (entry.items.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: entry.items
-                          .map((item) => _ItemChip(item: item))
-                          .toList(),
+                  if (item.description != null &&
+                      item.description!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      item.description!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
                   ],
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Balance: ₹${item.runningBalance}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: item.runningBalance > 0
+                            ? AppColors.error
+                            : AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -229,163 +216,14 @@ class _EntryRow extends StatelessWidget {
       return 'Today, ${DateFormat('d MMM').format(date)}';
     }
     if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
-      return 'Yesterday';
+      return 'Yesterday, ${DateFormat('d MMM').format(date)}';
     }
-    return DateFormat('d MMM, h:mm a').format(date);
+    return DateFormat('d MMM yyyy').format(date);
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 }
-
-// ── Payment Row ───────────────────────────────────────────────────────────────
-
-class _PaymentRow extends StatelessWidget {
-  final PaymentTransaction payment;
-  final bool isLast;
-
-  const _PaymentRow({required this.payment, required this.isLast});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const green = Color(0xFF1E7A45);
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _TimelineLine(
-            color: AppColors.primary.withAlpha(40),
-            isLast: isLast,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(6),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          DateFormat('d MMM, h:mm a').format(payment.paymentDate),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD1FAE5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Payment Received',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: green,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '-₹${payment.amount}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: green,
-                        ),
-                      ),
-                      Text(
-                        'via ${_modeLabel(payment.mode)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _modeLabel(String mode) => switch (mode) {
-        'upi' => 'UPI',
-        'other' => 'Other',
-        _ => 'Cash',
-      };
-}
-
-// ── Item Chip ─────────────────────────────────────────────────────────────────
-
-class _ItemChip extends StatelessWidget {
-  final EntryLineItem item;
-  const _ItemChip({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _iconData(item.iconName),
-            size: 16,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            '${item.quantity} ${item.name}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _iconData(String name) => switch (name) {
-        'checkroom' => Icons.checkroom,
-        'straighten' => Icons.straighten,
-        'dry_cleaning' => Icons.dry_cleaning,
-        'styler' => Icons.checkroom,
-        _ => Icons.checkroom,
-      };
-}
-
-// ── Timeline Line ─────────────────────────────────────────────────────────────
 
 class _TimelineLine extends StatelessWidget {
   final Color color;
@@ -395,14 +233,9 @@ class _TimelineLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 2,
-          height: isLast ? 0 : double.infinity,
-          color: color,
-        ),
-      ],
+    return Container(
+      width: 2,
+      color: isLast ? Colors.transparent : color,
     );
   }
 }

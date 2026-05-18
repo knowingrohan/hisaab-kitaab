@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hisaab Kitaab</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="hk-data.jsx"></script>
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="hk-screens.jsx"></script>
+<script type="text/babel" src="hk-screens2.jsx"></script>
+<script type="text/babel" src="hk-screens3.jsx"></script>
+<script type="text/babel" src="hk-onboarding.jsx"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #1a1a2e; font-family: 'Nunito', sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  #root { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  ::-webkit-scrollbar { display: none; }
+  input, select, textarea, button { font-family: 'Nunito', sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { MOCK_CUSTOMERS, MOCK_TRANSACTIONS } = window.HKData;
+
+// Dummy customer account matching mock data id:1
+const CUSTOMER_ACCOUNT = { id: 1, name: "Rohan Mahajan", flat: "G-9H", society: "Klassik Landmark", phone: "9876543210", email: "rohan@gmail.com", balance: 216, role: "customer" };
+
+// Mock staff account with limited permissions
+const STAFF_ACCOUNT = {
+  id: "s1", name: "Ramesh Kumar", role: "staff",
+  permissions: { view_entries: true, send_reminders: true, add_customers: true, edit_customers: false, view_invoices: false, call_customer: true, whatsapp: true, sms: false }
+};
+
+function App() {
+  const [role, setRole] = React.useState(null);
+  const [currentUser, setCurrentUser] = React.useState(null);
+  const [permissions, setPermissions] = React.useState({});
+  const [onboarded, setOnboarded] = React.useState(false);
+  const [vendorProfile, setVendorProfile] = React.useState({ vendorName: "Shivaswamy", businessName: "Shivaswamy Iron & Laundry", upiId: "shivaswamy@upi", societies: ["Klassik Landmark","Green Valley","Sunrise Heights"], threshold: 200 });
+  const [screen, setScreen] = React.useState("login");
+  const [customers, setCustomers] = React.useState(MOCK_CUSTOMERS);
+  const [transactions, setTransactions] = React.useState(MOCK_TRANSACTIONS);
+  const [selectedCustomer, setSelectedCustomer] = React.useState(null);
+  const [history, setHistory] = React.useState([]);
+
+  function go(s) { setHistory(h => [...h, screen]); setScreen(s); }
+  function goBack() {
+    if (history.length > 0) {
+      setScreen(history[history.length - 1]);
+      setHistory(h => h.slice(0, -1));
+    }
+  }
+
+  function handleLogin(r) {
+    setRole(r);
+    if (r === "customer") {
+      setCurrentUser(CUSTOMER_ACCOUNT);
+      setPermissions({});
+      setHistory([]); setScreen("customerHome");
+    } else if (r === "staff") {
+      setCurrentUser(STAFF_ACCOUNT);
+      setPermissions(STAFF_ACCOUNT.permissions);
+      setHistory([]); setScreen("home");
+    } else {
+      // owner — show onboarding if not yet done
+      setCurrentUser({ name: vendorProfile.vendorName, role: "owner" });
+      setPermissions({});
+      setHistory([]); setScreen(onboarded ? "home" : "onboarding");
+    }
+  }
+  function handleLogout() { setRole(null); setCurrentUser(null); setPermissions({}); setHistory([]); setScreen("login"); }
+  function handleRegister(data) {
+    const newC = { id: Date.now(), ...data, balance: 0 };
+    setCustomers(cs => [newC, ...cs]);
+    setTransactions(t => ({ ...t, [newC.id]: [] }));
+    setCurrentUser({ ...newC, role: "customer" });
+    setRole("customer"); setHistory([]); setScreen("customerHome");
+  }
+  function handleOnboardingComplete(profile) {
+    setVendorProfile(profile);
+    setOnboarded(true);
+    setHistory([]); setScreen("home");
+  }
+
+  function handleSelectCustomer(c) { setSelectedCustomer(c); go("customer"); }
+  function handleAddCustomer(data) {
+    const newC = { id: Date.now(), ...data, balance: 0 };
+    setCustomers(cs => [newC, ...cs]);
+    setTransactions(t => ({ ...t, [newC.id]: [] }));
+    goBack();
+  }
+  function handleUpdateCustomer(updated) {
+    setCustomers(cs => cs.map(c => c.id === updated.id ? updated : c));
+    setSelectedCustomer(updated);
+  }
+  function handleDeleteCustomer(id) {
+    setCustomers(cs => cs.filter(c => c.id !== id));
+    setTransactions(t => { const n = { ...t }; delete n[id]; return n; });
+    setHistory([]); setScreen("home");
+  }
+  function handleAddEntry(entry) {
+    const cid = selectedCustomer.id;
+    const txList = transactions[cid] || [];
+    const prevBal = selectedCustomer.balance;
+    const newBal = entry.type === "gave" ? prevBal + entry.amount : prevBal - entry.amount;
+    const entryDate = entry.date || new Date().toISOString();
+    const newTx = { id: Date.now(), date: entryDate, type: entry.type, amount: entry.amount, desc: entry.desc, balance: newBal };
+    setTransactions(t => ({ ...t, [cid]: [newTx, ...txList] }));
+    const updatedC = { ...selectedCustomer, balance: newBal };
+    setSelectedCustomer(updatedC);
+    setCustomers(cs => cs.map(c => c.id === cid ? updatedC : c));
+    goBack();
+  }
+
+  const custTx = selectedCustomer ? (transactions[selectedCustomer.id] || []) : [];
+
+  const screenEl = () => {
+    switch (screen) {
+      case "login":
+        return <LoginScreen onGoogleLogin={handleLogin} onRegister={() => go("register")} />;
+      case "register":
+        return <RegistrationScreen onRegister={handleRegister} onBack={goBack} />;
+      case "onboarding":
+        return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+      case "customerHome":
+        return <CustomerHomeScreen currentUser={currentUser} transactions={transactions} onLogout={handleLogout} />;
+      case "home":
+        return <HomeScreen role={role} permissions={permissions} customers={customers}
+          onCustomer={handleSelectCustomer}
+          onAddCustomer={() => go("addCustomer")}
+          onSettings={() => go("settings")}
+          onOverdue={() => go("overdue")}
+          onLogout={handleLogout} />;
+      case "addCustomer":
+        return <AddCustomerScreen onSave={handleAddCustomer} onBack={goBack} />;
+      case "customer":
+        return selectedCustomer ? <CustomerDetailScreen
+          customer={selectedCustomer} transactions={custTx} role={role} permissions={permissions}
+          onBack={goBack} onAddGave={() => go("addGave")} onAddGot={() => go("addGot")}
+          onReport={() => go("report")}
+          onUpdateCustomer={handleUpdateCustomer} onDeleteCustomer={handleDeleteCustomer} /> : null;
+      case "report":
+        return selectedCustomer ? <PDFReportScreen customer={selectedCustomer} transactions={custTx} onBack={goBack} /> : null;
+      case "overdue":
+        return <OverdueScreen customers={customers} transactions={transactions} threshold={vendorProfile.threshold} onBack={goBack} onCustomer={c => { setSelectedCustomer(c); go("customer"); }} />;
+      case "addGave":
+        return selectedCustomer ? <AddGaveScreen customer={selectedCustomer} onSave={handleAddEntry} onBack={goBack} /> : null;
+      case "addGot":
+        return selectedCustomer ? <AddGotScreen customer={selectedCustomer} balance={selectedCustomer.balance} onSave={handleAddEntry} onBack={goBack} /> : null;
+      case "settings":
+        return <SettingsScreen onBack={goBack} role={role} onStaffSettings={() => go("staffSettings")} />;
+      case "staffSettings":
+        return <StaffSettingsScreen onBack={goBack} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <AndroidDevice width={390} height={844} dark={false}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", position: "relative", fontFamily: "'Nunito', sans-serif" }}>
+        {screenEl()}
+      </div>
+    </AndroidDevice>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

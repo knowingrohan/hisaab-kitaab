@@ -19,32 +19,25 @@ dependencies:
   # Navigation
   go_router: ^14.8.1
 
-  # Database
-  drift: ^2.22.1
-  sqlcipher_flutter_libs: ^0.5.0
-  sqlite3: ^2.9.0
-  path_provider: ^2.1.5
-  path: ^1.9.1
+  # Supabase
+  supabase_flutter: ^2.8.4
 
   # UI
   google_fonts: ^6.2.1
   intl: ^0.20.2
 
-  # Cloud Backup
-  google_sign_in: ^6.2.2
-  googleapis: ^13.2.0
-  extension_google_sign_in_as_googleapis_auth: ^2.0.12
-
   # Crash Monitoring
   sentry_flutter: ^9.0.0
-
-  # Background Tasks
-  workmanager: ^0.9.0
 
   # Security
   local_auth: ^2.3.0
 
+  # Local storage
+  shared_preferences: ^2.3.3
+  path_provider: ^2.1.5
+
   # Utilities
+  flutter_dotenv: ^5.2.1
   csv: ^6.0.0
   url_launcher: ^6.3.1
   uuid: ^4.5.1
@@ -56,10 +49,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-  # Drift code generation
-  drift_dev: ^2.22.1
-  build_runner: ^2.4.14
-
   # Riverpod code generation
   riverpod_generator: ^2.6.3
   custom_lint: ^0.7.5
@@ -69,3 +58,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/google_fonts/
+    - .env

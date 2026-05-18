@@ -1,11 +1,12 @@
 import 'dart:ui';
 
-/// Material Design 3 color tokens extracted from Stitch design system.
 class AppColors {
   AppColors._();
 
   // Primary
   static const primary = Color(0xFF003886);
+  static const primaryDark = Color(0xFF002560);
+  static const primaryLight = Color(0xFF1A4FAA);
   static const onPrimary = Color(0xFFFFFFFF);
   static const primaryContainer = Color(0xFF1A4FAA);
   static const onPrimaryContainer = Color(0xFFB2C7FF);
@@ -58,6 +59,19 @@ class AppColors {
   // Outline
   static const outline = Color(0xFF737783);
   static const outlineVariant = Color(0xFFC3C6D4);
+
+  // ── Semantic tokens (HK design system) ──
+  static const cardBackground = Color(0xFFFFFFFF);
+  static const scaffoldBackground = Color(0xFFF0F2F5);
+  static const gaveRed = Color(0xFFC0392B);
+  static const gaveRedLight = Color(0xFFFDECEA);
+  static const gotGreen = Color(0xFF16A34A);
+  static const gotGreenLight = Color(0xFFECFDF5);
+  static const warnAmber = Color(0xFFF59E0B);
+  static const textPrimary = Color(0xFF1A1C1C);
+  static const textSub = Color(0xFF5D5F5F);
+  static const textMuted = Color(0xFF9CA3AF);
+  static const borderColor = Color(0xFFE2E4E9);
 
   // Custom
   static const whatsappGreen = Color(0xFF25D366);

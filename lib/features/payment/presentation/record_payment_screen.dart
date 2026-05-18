@@ -1,14 +1,12 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hisaab_kitaab/core/database/app_database.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/repositories/payment_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
 
 class RecordPaymentScreen extends ConsumerStatefulWidget {
-  final int customerId;
+  final String customerId;
 
   const RecordPaymentScreen({super.key, required this.customerId});
 
@@ -46,18 +44,17 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(databaseProvider).insertPayment(
-            PaymentsCompanion.insert(
-              customerId: widget.customerId,
-              amount: amount,
-              mode: Value(_paymentMode),
-              notes: Value(
-                  _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
-              paymentDate: DateTime.now(),
-            ),
+      await ref.read(paymentRepositoryProvider).add(
+            customerId: widget.customerId,
+            amount: amount,
+            mode: _paymentMode,
+            paymentDate: DateTime.now(),
+            notes: _notesCtrl.text.trim().isEmpty
+                ? null
+                : _notesCtrl.text.trim(),
           );
       if (mounted) context.pop();
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -97,7 +94,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Balance card ──────────────────────────────────────────────
             if (customer != null) ...[
               Container(
                 width: double.infinity,
@@ -168,7 +164,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
               const SizedBox(height: 28),
             ],
 
-            // ── Amount input ──────────────────────────────────────────────
             Text(
               'Payment Amount',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -224,7 +219,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
             const SizedBox(height: 14),
 
-            // ── Quick amount chips ────────────────────────────────────────
             Wrap(
               spacing: 10,
               children: [50, 100, 200, 500].map((amt) {
@@ -253,7 +247,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
             const SizedBox(height: 28),
 
-            // ── Payment mode ──────────────────────────────────────────────
             Text(
               'Payment Mode',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -281,7 +274,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
             const SizedBox(height: 28),
 
-            // ── Notes ─────────────────────────────────────────────────────
             RichText(
               text: TextSpan(
                 text: 'Notes ',
@@ -312,7 +304,6 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
 
             const SizedBox(height: 32),
 
-            // ── Save button ───────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -361,7 +352,9 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: selected ? AppColors.surfaceContainerLowest : Colors.transparent,
+            color: selected
+                ? AppColors.surfaceContainerLowest
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(22),
             boxShadow: selected
                 ? [

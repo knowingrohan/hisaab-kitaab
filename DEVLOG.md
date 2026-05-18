@@ -12,39 +12,43 @@
 **Tech Stack**
 - Flutter 3.x, Dart
 - State: Flutter Riverpod (manual `StreamProvider`/`StateNotifierProvider` — no build_runner for providers)
-- DB: Drift + SQLCipher (transparent encryption, `PRAGMA key` on open)
-- Nav: go_router with `StatefulShellRoute` bottom nav
+- DB: **Supabase (PostgreSQL)** — realtime `.stream()` for live queries, `.upsert()` for writes
+- Auth: Supabase Auth + Google OAuth; role resolved via `get_my_role()` RPC
+- Nav: go_router — hierarchical navigation (no bottom nav shell)
 - UI: Material 3, Be Vietnam Pro (google_fonts), primary `#003886`
-- Packages: `url_launcher`, `pdf`, `share_plus`, `csv`, `local_auth`, `workmanager`, `sentry_flutter`, `google_sign_in`, `googleapis`, `flutter_localizations`
+- Packages: `url_launcher`, `pdf`, `share_plus`, `csv`, `local_auth`, `sentry_flutter`, `flutter_localizations`, `flutter_dotenv`, `shared_preferences`
 
 **Architecture** — feature-first clean architecture:
 ```
 lib/
-├── main.dart                   # SentryFlutter.init + WorkManager init + runApp
-├── app.dart                    # HisaabKitaabApp — locale, lock, onboarding overlay
+├── main.dart                   # flutter_dotenv load + Supabase.initialize + runApp
+├── app.dart                    # HisaabKitaabApp — locale, lock, auth redirect
 ├── core/
-│   ├── database/               # Drift DB, 7 tables, seed data, all DAOs
-│   ├── providers/              # databaseProvider, settingsProvider, localeProvider
-│   ├── router/                 # app_router.dart (go_router)
+│   ├── auth/                   # HKAuthState sealed class, AuthNotifier, authProvider
+│   ├── models/                 # customer.dart, transaction_item.dart, society.dart
+│   ├── repositories/           # customer, entry, payment, config, society, staff, transaction
+│   ├── providers/              # settingsProvider (re-export), localeProvider
+│   ├── router/                 # app_router.dart (hierarchical go_router + auth guard)
+│   ├── supabase/               # supabase_client.dart, supabase_tables.dart
 │   ├── theme/                  # app_theme.dart, app_colors.dart
-│   └── utils/                  # whatsapp_helper, upi_helper, pdf_invoice_helper,
-│                               # drive_backup_helper, csv_exporter, backup_scheduler
+│   └── utils/                  # whatsapp_helper, upi_helper, pdf_invoice_helper, csv_exporter
 ├── features/
+│   ├── auth/                   # LoginScreen (Google OAuth)
 │   ├── home/                   # HomeScreen, CustomerCard, filter tabs
 │   ├── customer_detail/        # CustomerDetailScreen, TransactionTimeline
-│   ├── add_entry/              # AddEntryScreen, AddItemsSheet (modal)
+│   ├── add_entry/              # AddEntryScreen (customer picker), AddItemsSheet (modal)
 │   ├── payment/                # RecordPaymentScreen
 │   ├── reminders/              # OverdueRemindersScreen
-│   ├── settings/               # SettingsScreen, BackupNotifier
-│   ├── app_lock/               # PinLockScreen, PinSetupSheet, AppLockNotifier
+│   ├── settings/               # SettingsScreen (societies, config, app lock)
+│   ├── app_lock/               # PinLockScreen, PinSetupSheet, AppLockNotifier (SharedPrefs)
 │   └── onboarding/             # OnboardingScreen (3-screen carousel)
-└── shared/widgets/             # BottomNavShell (glassmorphism)
+└── shared/widgets/             # HKGradientHeader, HKAvatar, etc.
 ```
 
-**Database — 7 tables**
-`societies`, `customers`, `item_types`, `entries`, `entry_items`, `payments`, `app_settings`
+**Supabase schema — 6 tables**
+`app_config`, `societies`, `staff`, `customers`, `entries`, `payments`
 
-`app_settings` keys: `business_name`, `upi_id`, `alert_threshold`, `whatsapp_template`, `language`, `app_lock_enabled`, `onboarding_done`, `auto_backup_enabled`
+Config stored in `app_config` (single row, id=1). PIN and locale stored locally in `shared_preferences`.
 
 ---
 
@@ -59,8 +63,13 @@ lib/
 | M4 — Cloud Backup (Google Drive) | ✅ Complete | 2026-03-31 |
 | M4-Adhoc — Missing FRs (9 items) | ✅ Complete | 2026-03-31 |
 | M5 — Polish | ✅ Complete | 2026-03-31 |
+| Phase 12 — Supabase Schema + RLS + Seed | ✅ Complete | 2026-05-19 |
+| Phase 13 — Flutter Supabase Migration (data layer) | ✅ Complete | 2026-05-19 |
+| Phase 1 — Design System & Shared Widgets | ✅ Complete | 2026-05-19 |
+| Phase 8 — Auth Screens (Login + Registration) | ✅ Complete | 2026-05-19 |
+| Phase 2 — Home Screen Redesign | ✅ Complete | 2026-05-19 |
 
-**All milestones complete. App ready for release testing.**
+**Phase 2 complete — home screen redesigned with HKGradientHeader (business name, role badge, overdue badge, settings/logout actions), summary card (total outstanding + customer count), society chip tabs for filtering, updated CustomerCard (Flat · Name, society subtitle, OVERDUE/SETTLED/DUE badges with amber left border), FAB gated by role/permission. Zero analyzer issues.**
 
 ---
 
@@ -133,6 +142,9 @@ All 9 items built in a single session:
 | 2026-03-31 | 5 | M4 — DriveBackupHelper (WAL checkpoint, upload/download .db to Drive appDataFolder, file-swap restore), BackupNotifier/backupProvider, DATA BACKUP card in SettingsScreen (sign-in, back-up-now, restore + restart dialog); GCP OAuth setup done | M4 ✅ |
 | 2026-03-31 | 6 | M4-Adhoc Units 1–9 — Edit/delete customer, society management UI, customer search, item rate config, edit/delete entry, WhatsApp template editor, SQLCipher encryption, CSV export, zero-balance badge | M4-Adhoc ✅ |
 | 2026-03-31 | 7 | M5 — App lock (PIN+biometric), onboarding carousel, auto daily backup (workmanager), language toggle (flutter_localizations), crash monitoring (sentry_flutter); also fixed pre-existing missing packages (google_sign_in, googleapis, checkpoint DAO method) | M5 ✅ — ALL DONE |
+| 2026-05-19 | 8 | Phase 13 — Complete Drift → Supabase migration: repositories (customer, entry, payment, config, society, staff, transaction), removed Drift/SQLCipher/WorkManager/DriveBackup, rewrote all screens/widgets to use Supabase models, replaced bottom nav shell with hierarchical go_router + auth guard, switched app_lock + locale to shared_preferences, `flutter analyze` = 0 issues | Phase 13 ✅ |
+| 2026-05-19 | 9 | Phase 1 — Design system & shared widgets: added semantic color tokens (gaveRed, gotGreen, warnAmber, textSub, textMuted, borderColor, etc.) to AppColors; set scaffoldBackgroundColor to #F0F2F5; created `lib/shared/widgets/` — HKGradientHeader, HKAvatar, HKChip, HKBottomSheet (showHKBottomSheet helper), HKFab (primary/gave/got variants), BalanceCard; `flutter analyze` = 0 issues | Phase 1 ✅ |
+| 2026-05-19 | 10 | Phase 8 — Auth screens: enhanced LoginScreen (brand hero, 3 role info cards, register link); created RegistrationScreen (two states: pre-auth Google prompt / post-auth profile form with societies dropdown, name/phone/flat); router redirect updated — UnknownRole→/register, CustomerRole→/ (Phase 10 placeholder); added `selfRegister()` + `isPendingRegistration()` to CustomerRepository; added migration `20260425000002_registration_policies.sql` (societies public read, customer self-insert with is_active=false); `flutter analyze` = 0 issues | Phase 8 ✅ |
 
 ---
 
@@ -141,7 +153,10 @@ All 9 items built in a single session:
 - `useRootNavigator: true` on all `showModalBottomSheet` calls (outer scaffold uses `extendBody: true`)
 - `ref.read` (not `ref.watch`) inside button/async handlers
 - All monetary values are `int` (whole rupees, no decimals)
-- After modifying Drift tables or adding `@riverpod` annotations → run `flutter pub run build_runner build`
+- IDs are UUID strings — never `int` for customer/entry/payment IDs
+- `entry_date` / `payment_date` are DATE — format with `.toIso8601String().substring(0, 10)`
+- Supabase anon key lives in `.env` — never in source code, never service-role key in client
+- App lock PIN + locale stored in `shared_preferences` (device-local, not Supabase)
 - Run `flutter analyze` after every session — must be 0 issues before committing
 - To build with Sentry: `flutter run --dart-define=SENTRY_DSN=https://your-dsn@sentry.io/project`
 

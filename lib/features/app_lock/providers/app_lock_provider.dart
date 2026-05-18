@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
-
-import '../../../core/providers/database_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppLockState {
   const AppLockState({
@@ -19,25 +18,25 @@ class AppLockState {
 }
 
 class AppLockNotifier extends StateNotifier<AppLockState> {
-  AppLockNotifier(this._ref)
+  AppLockNotifier()
       : super(const AppLockState(isLocked: false, isEnabled: false)) {
     _init();
   }
 
-  final Ref _ref;
   final _localAuth = LocalAuthentication();
 
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+
   Future<void> _init() async {
-    final db = _ref.read(databaseProvider);
-    final enabled = await db.getSetting('app_lock_enabled') == 'true';
-    final pin = await db.getSetting('app_pin') ?? '';
+    final prefs = await _prefs;
+    final enabled = prefs.getBool('app_lock_enabled') ?? false;
+    final pin = prefs.getString('app_pin') ?? '';
     state = AppLockState(
       isEnabled: enabled,
       isLocked: enabled && pin.isNotEmpty,
     );
   }
 
-  /// Call when app resumes from background.
   void lockApp() {
     if (state.isEnabled) state = state.copyWith(isLocked: true);
   }
@@ -45,7 +44,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   void unlockApp() => state = state.copyWith(isLocked: false);
 
   Future<bool> verifyPin(String entered) async {
-    final stored = await _ref.read(databaseProvider).getSetting('app_pin') ?? '';
+    final stored = (await _prefs).getString('app_pin') ?? '';
     return entered == stored;
   }
 
@@ -74,24 +73,24 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   }
 
   Future<void> enableLock(String pin) async {
-    final db = _ref.read(databaseProvider);
-    await db.setSetting('app_pin', pin);
-    await db.setSetting('app_lock_enabled', 'true');
-    state = AppLockState(isEnabled: true, isLocked: false);
+    final prefs = await _prefs;
+    await prefs.setString('app_pin', pin);
+    await prefs.setBool('app_lock_enabled', true);
+    state = const AppLockState(isEnabled: true, isLocked: false);
   }
 
   Future<void> changePin(String newPin) async {
-    await _ref.read(databaseProvider).setSetting('app_pin', newPin);
+    await (await _prefs).setString('app_pin', newPin);
   }
 
   Future<void> disableLock() async {
-    final db = _ref.read(databaseProvider);
-    await db.setSetting('app_lock_enabled', 'false');
-    state = AppLockState(isEnabled: false, isLocked: false);
+    final prefs = await _prefs;
+    await prefs.setBool('app_lock_enabled', false);
+    state = const AppLockState(isEnabled: false, isLocked: false);
   }
 }
 
 final appLockProvider =
     StateNotifierProvider<AppLockNotifier, AppLockState>((ref) {
-  return AppLockNotifier(ref);
+  return AppLockNotifier();
 });

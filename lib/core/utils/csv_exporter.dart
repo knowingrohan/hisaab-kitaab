@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/database/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/models/transaction_item.dart';
 
 class CsvExporter {
   // ── All-customers summary export ──────────────────────────────────────────
@@ -46,31 +46,16 @@ class CsvExporter {
       ['Total Paid', customer.totalPaid],
       ['Balance', customer.balance],
       [],
-      ['Date', 'Type', 'Amount (INR)', 'Details'],
+      ['Date', 'Type', 'Amount (INR)', 'Description'],
     ];
 
     for (final t in transactions) {
-      switch (t) {
-        case EntryTransaction():
-          final items =
-              t.items.map((i) => '${i.quantity}x ${i.name}').join(', ');
-          rows.add([
-            DateFormat('dd/MM/yyyy').format(t.entryDate),
-            'Entry',
-            t.totalAmount,
-            items,
-          ]);
-        case PaymentTransaction():
-          final notes = (t.notes != null && t.notes!.isNotEmpty)
-              ? ' (${t.notes})'
-              : '';
-          rows.add([
-            DateFormat('dd/MM/yyyy').format(t.paymentDate),
-            'Payment',
-            t.amount,
-            'via ${t.mode}$notes',
-          ]);
-      }
+      rows.add([
+        DateFormat('dd/MM/yyyy').format(t.date),
+        t.isGave ? 'Entry' : 'Payment',
+        t.amount,
+        t.description ?? '',
+      ]);
     }
 
     final csv = const ListToCsvConverter().convert(rows);

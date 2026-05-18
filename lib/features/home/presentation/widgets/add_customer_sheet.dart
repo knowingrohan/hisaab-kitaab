@@ -1,17 +1,15 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/app_database.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/society_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
-import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 
 class AddCustomerSheet extends ConsumerStatefulWidget {
-  final int? editingId;
+  final String? editingId;
   final String? initialName;
   final String? initialFlat;
   final String? initialPhone;
-  final int? initialSocietyId;
+  final String? initialSocietyId;
 
   const AddCustomerSheet({
     super.key,
@@ -31,7 +29,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   final _nameCtrl = TextEditingController();
   final _flatCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  int? _selectedSocietyId;
+  String? _selectedSocietyId;
   bool _saving = false;
 
   @override
@@ -53,30 +51,38 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedSocietyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a society')),
+      );
+      return;
+    }
     setState(() => _saving = true);
-    final db = ref.read(databaseProvider);
+    final repo = ref.read(customerRepositoryProvider);
     try {
       if (widget.editingId != null) {
-        await db.updateCustomer(CustomersCompanion(
-          id: Value(widget.editingId!),
-          name: Value(_nameCtrl.text.trim()),
-          flatNumber: Value(_flatCtrl.text.trim()),
-          phone: Value(_phoneCtrl.text.trim().isEmpty
-              ? null
-              : _phoneCtrl.text.trim()),
-          societyId: Value(_selectedSocietyId),
-        ));
-      } else {
-        await db.insertCustomer(CustomersCompanion.insert(
+        await repo.update(
+          id: widget.editingId!,
           name: _nameCtrl.text.trim(),
           flatNumber: _flatCtrl.text.trim(),
-          phone: Value(_phoneCtrl.text.trim().isEmpty
-              ? null
-              : _phoneCtrl.text.trim()),
-          societyId: Value(_selectedSocietyId),
-        ));
+          societyId: _selectedSocietyId,
+          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
+      } else {
+        await repo.add(
+          name: _nameCtrl.text.trim(),
+          flatNumber: _flatCtrl.text.trim(),
+          societyId: _selectedSocietyId!,
+          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
       }
       if (mounted) Navigator.of(context).pop();
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -105,7 +111,6 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Handle
                   Center(
                     child: Container(
                       width: 40,
@@ -118,7 +123,9 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                     ),
                   ),
                   Text(
-                    widget.editingId != null ? 'Edit Customer' : 'Add New Customer',
+                    widget.editingId != null
+                        ? 'Edit Customer'
+                        : 'Add New Customer',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -145,7 +152,9 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                       prefixIcon: Icon(Icons.home_outlined),
                     ),
                     validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Flat number is required' : null,
+                        v == null || v.trim().isEmpty
+                            ? 'Flat number is required'
+                            : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -158,16 +167,16 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int?>(
+                  DropdownButtonFormField<String?>(
                     initialValue: _selectedSocietyId,
                     decoration: const InputDecoration(
-                      labelText: 'Society (Optional)',
+                      labelText: 'Society',
                       prefixIcon: Icon(Icons.location_city_outlined),
                     ),
                     items: [
                       const DropdownMenuItem(
                         value: null,
-                        child: Text('No Society'),
+                        child: Text('Select Society'),
                       ),
                       ...societies.map((s) => DropdownMenuItem(
                             value: s.id,
@@ -198,7 +207,9 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                               ),
                             )
                           : Text(
-                              widget.editingId != null ? 'Save Changes' : 'Add Customer',
+                              widget.editingId != null
+                                  ? 'Save Changes'
+                                  : 'Add Customer',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,

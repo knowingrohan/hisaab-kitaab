@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
-import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
+
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
 
 /// All customers whose balance >= alert_threshold.
 final overdueCustomersProvider =

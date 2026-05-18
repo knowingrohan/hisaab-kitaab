@@ -1,17 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/app_database.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
 
-final customersWithBalanceProvider =
-    StreamProvider<List<CustomerWithBalance>>((ref) {
-  return ref.watch(databaseProvider).watchCustomersWithBalance();
-});
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
 
-final totalOutstandingProvider = StreamProvider<int>((ref) {
-  return ref.watch(databaseProvider).watchTotalOutstanding();
-});
+export 'package:hisaab_kitaab/core/repositories/customer_repository.dart'
+    show customersWithBalanceProvider, totalOutstandingProvider;
+export 'package:hisaab_kitaab/core/repositories/society_repository.dart'
+    show societiesProvider;
 
-final societiesProvider = StreamProvider<List<Society>>((ref) {
-  return ref.watch(databaseProvider).watchSocieties();
+final overdueCountProvider = Provider<int>((ref) {
+  final customers = ref.watch(customersWithBalanceProvider).valueOrNull ?? [];
+  final threshold = ref.watch(alertThresholdProvider);
+  return customers.where((c) => c.balance >= threshold).length;
 });

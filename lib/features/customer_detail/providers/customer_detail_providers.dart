@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/database/models/transaction_item.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
+
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/transaction_repository.dart';
 
 final customerWithBalanceProvider =
-    StreamProvider.family<CustomerWithBalance?, int>((ref, id) {
-  return ref.watch(databaseProvider).watchCustomerWithBalance(id);
+    StreamProvider.family<CustomerWithBalance?, String>((ref, id) {
+  return ref.watch(customerRepositoryProvider).watchWithBalance(id);
 });
 
 final customerTransactionsProvider =
-    StreamProvider.family<List<TransactionItem>, int>((ref, id) {
-  return ref.watch(databaseProvider).watchCustomerTransactions(id);
+    StreamProvider.family<List<TransactionItem>, String>((ref, id) {
+  return ref.watch(transactionRepositoryProvider).watchForCustomer(id);
 });

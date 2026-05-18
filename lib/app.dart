@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hisaab_kitaab/core/auth/auth_provider.dart';
 import 'package:hisaab_kitaab/core/providers/locale_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hisaab_kitaab/core/router/app_router.dart';
 import 'package:hisaab_kitaab/core/theme/app_theme.dart';
 import 'package:hisaab_kitaab/features/app_lock/presentation/pin_lock_screen.dart';
 import 'package:hisaab_kitaab/features/app_lock/providers/app_lock_provider.dart';
-import 'package:hisaab_kitaab/features/onboarding/presentation/onboarding_screen.dart';
-import 'package:hisaab_kitaab/features/onboarding/providers/onboarding_provider.dart';
 
 class HisaabKitaabApp extends ConsumerStatefulWidget {
   const HisaabKitaabApp({super.key});
@@ -18,10 +18,19 @@ class HisaabKitaabApp extends ConsumerStatefulWidget {
 
 class _HisaabKitaabAppState extends ConsumerState<HisaabKitaabApp>
     with WidgetsBindingObserver {
+  late final GoRouter _router;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Build router after the ProviderScope is available in context.
+    _router = buildAppRouter(ProviderScope.containerOf(context));
   }
 
   @override
@@ -31,8 +40,8 @@ class _HisaabKitaabAppState extends ConsumerState<HisaabKitaabApp>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
-    if (lifecycle == AppLifecycleState.paused) {
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
       ref.read(appLockProvider.notifier).lockApp();
     }
   }
@@ -40,14 +49,22 @@ class _HisaabKitaabAppState extends ConsumerState<HisaabKitaabApp>
   @override
   Widget build(BuildContext context) {
     final lockState = ref.watch(appLockProvider);
-    final onboardingAsync = ref.watch(onboardingDoneProvider);
     final locale = ref.watch(localeNotifierProvider);
+
+    // Auth loading splash — before router initializes
+    final authState = ref.watch(authProvider);
+    if (authState is HKAuthLoading) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
 
     return MaterialApp.router(
       title: 'Hisaab Kitaab',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
+      routerConfig: _router,
       locale: locale,
       supportedLocales: const [
         Locale('en'),
@@ -59,28 +76,9 @@ class _HisaabKitaabAppState extends ConsumerState<HisaabKitaabApp>
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        // Onboarding takes priority — show on first ever launch.
-        return onboardingAsync.when(
-          loading: () => const _SplashBackground(),
-          error: (err, st) => child ?? const SizedBox.shrink(),
-          data: (done) {
-            if (!done) return const OnboardingScreen();
-            if (lockState.isLocked) return const PinLockScreen();
-            return child ?? const SizedBox.shrink();
-          },
-        );
+        if (lockState.isLocked) return const PinLockScreen();
+        return child ?? const SizedBox.shrink();
       },
-    );
-  }
-}
-
-class _SplashBackground extends StatelessWidget {
-  const _SplashBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
     );
   }
 }

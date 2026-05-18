@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
 import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
@@ -13,7 +13,7 @@ class OverdueRemindersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final overdueAsync = ref.watch(overdueCustomersProvider);
-    final settings = ref.watch(settingsProvider).valueOrNull ?? {};
+    final config = ref.watch(appConfigProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -31,11 +31,10 @@ class OverdueRemindersScreen extends ConsumerWidget {
           overdueAsync.whenOrNull(
             data: (overdue) {
               if (overdue.isEmpty) return null;
-              final withPhone =
-                  overdue.where((c) => _hasPhone(c)).toList();
+              final withPhone = overdue.where((c) => _hasPhone(c)).toList();
               if (withPhone.isEmpty) return null;
               return TextButton.icon(
-                onPressed: () => _sendAll(context, withPhone, settings),
+                onPressed: () => _sendAll(context, withPhone, config),
                 icon: const Icon(Icons.send_rounded,
                     size: 18, color: AppColors.whatsappGreen),
                 label: Text(
@@ -47,25 +46,23 @@ class OverdueRemindersScreen extends ConsumerWidget {
                 ),
               );
             },
-          ) ?? const SizedBox.shrink(),
+          ) ??
+              const SizedBox.shrink(),
           const SizedBox(width: 8),
         ],
       ),
       body: overdueAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (overdue) {
-          if (overdue.isEmpty) {
-            return _emptyState(context);
-          }
+          if (overdue.isEmpty) return _emptyState(context);
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             itemCount: overdue.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) => _OverdueCard(
               customer: overdue[index],
-              settings: settings,
+              config: config,
             ),
           );
         },
@@ -79,17 +76,16 @@ class OverdueRemindersScreen extends ConsumerWidget {
   Future<void> _sendAll(
     BuildContext context,
     List<CustomerWithBalance> customers,
-    Map<String, String> settings,
+    AppConfig? config,
   ) async {
     int sent = 0;
     for (final customer in customers) {
-      final message = _buildMessage(customer, settings);
+      final message = _buildMessage(customer, config);
       final ok = await WhatsAppHelper.sendReminder(
         phone: customer.phone!,
         message: message,
       );
       if (ok) sent++;
-      // Small delay between opens to avoid overwhelming the OS
       await Future.delayed(const Duration(milliseconds: 600));
     }
     if (context.mounted) {
@@ -99,15 +95,12 @@ class OverdueRemindersScreen extends ConsumerWidget {
     }
   }
 
-  static String _buildMessage(
-    CustomerWithBalance customer,
-    Map<String, String> settings,
-  ) {
-    final template = settings['whatsapp_template'] ??
+  static String _buildMessage(CustomerWithBalance customer, AppConfig? config) {
+    final template = config?.whatsappTemplate ??
         'Namaste {customer_name}! Aapka pressing ka bill {amount} ho gaya hai. '
             'Kripya payment kar dein. - {business_name}';
-    final businessName = settings['business_name'] ?? 'My Press Shop';
-    final upiId = settings['upi_id'] ?? '';
+    final businessName = config?.businessName ?? 'My Press Shop';
+    final upiId = config?.upiId ?? '';
 
     final upiLink = UpiHelper.buildLink(
       upiId: upiId,
@@ -132,11 +125,8 @@ class OverdueRemindersScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.check_circle_outline,
-              size: 72,
-              color: AppColors.whatsappGreen,
-            ),
+            const Icon(Icons.check_circle_outline,
+                size: 72, color: AppColors.whatsappGreen),
             const SizedBox(height: 16),
             Text(
               'All Settled!',
@@ -149,9 +139,8 @@ class OverdueRemindersScreen extends ConsumerWidget {
             Text(
               'No customers with overdue balances.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.onSurfaceVariant),
             ),
           ],
         ),
@@ -162,12 +151,9 @@ class OverdueRemindersScreen extends ConsumerWidget {
 
 class _OverdueCard extends StatelessWidget {
   final CustomerWithBalance customer;
-  final Map<String, String> settings;
+  final AppConfig? config;
 
-  const _OverdueCard({
-    required this.customer,
-    required this.settings,
-  });
+  const _OverdueCard({required this.customer, required this.config});
 
   bool get _hasPhone =>
       customer.phone != null && customer.phone!.trim().isNotEmpty;
@@ -198,7 +184,6 @@ class _OverdueCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Avatar
                 Container(
                   width: 40,
                   height: 40,
@@ -217,16 +202,14 @@ class _OverdueCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Name + flat
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         customer.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 2),
                       Row(
@@ -249,15 +232,13 @@ class _OverdueCard extends StatelessWidget {
                           ),
                           if (_hasPhone) ...[
                             const SizedBox(width: 6),
-                            Icon(Icons.phone_outlined,
-                                size: 12,
-                                color: AppColors.onSurfaceVariant),
+                            const Icon(Icons.phone_outlined,
+                                size: 12, color: AppColors.onSurfaceVariant),
                             const SizedBox(width: 2),
                             Text(
                               customer.phone!,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                                  color: AppColors.onSurfaceVariant),
                             ),
                           ],
                         ],
@@ -265,7 +246,6 @@ class _OverdueCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Balance
                 Text(
                   '₹${customer.balance}',
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -281,18 +261,13 @@ class _OverdueCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                // Billing summary
                 Text(
                   '₹${customer.totalBilled} billed · ₹${customer.totalPaid} paid',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.onSurfaceVariant),
                 ),
                 const Spacer(),
-                // Send reminder button
-                _hasPhone
-                    ? _sendButton(context)
-                    : _noPhoneChip(context),
+                _hasPhone ? _sendButton(context) : _noPhoneChip(context),
               ],
             ),
           ],
@@ -337,15 +312,16 @@ class _OverdueCard extends StatelessWidget {
       ),
       child: Text(
         'No phone number',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
+        style: Theme.of(context)
+            .textTheme
+            .labelSmall
+            ?.copyWith(color: AppColors.onSurfaceVariant),
       ),
     );
   }
 
   Future<void> _sendReminder(BuildContext context) async {
-    final message = OverdueRemindersScreen._buildMessage(customer, settings);
+    final message = OverdueRemindersScreen._buildMessage(customer, config);
     final ok = await WhatsAppHelper.sendReminder(
       phone: customer.phone!,
       message: message,

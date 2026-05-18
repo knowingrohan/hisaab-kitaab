@@ -5,11 +5,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../database/models/customer_with_balance.dart';
-import '../database/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
 
 class PdfInvoiceHelper {
-  // ── Colors ────────────────────────────────────────────────────────────────
   static final _primary = PdfColor.fromInt(0xFF003886);
   static final _primaryLight = PdfColor.fromInt(0xFFDDE8FF);
   static final _error = PdfColor.fromInt(0xFFBA1A1A);
@@ -22,20 +22,17 @@ class PdfInvoiceHelper {
 
   static final _dateFormat = DateFormat('d MMM yyyy');
 
-  // ── Public API ────────────────────────────────────────────────────────────
-
-  /// Generates a per-customer invoice PDF and writes it to the temp directory.
   static Future<File> buildCustomerInvoice({
     required CustomerWithBalance customer,
     required List<TransactionItem> transactions,
-    required Map<String, String> settings,
+    required AppConfig? config,
   }) async {
-    final businessName = settings['business_name'] ?? 'My Press Shop';
-    final upiId = settings['upi_id'] ?? '';
+    final businessName = config?.businessName ?? 'My Press Shop';
+    final upiId = config?.upiId ?? '';
     final now = DateTime.now();
 
-    final entries = transactions.whereType<EntryTransaction>().toList();
-    final payments = transactions.whereType<PaymentTransaction>().toList();
+    final entries = transactions.where((t) => t.isGave).toList();
+    final payments = transactions.where((t) => !t.isGave).toList();
 
     final doc = pw.Document();
     final regular = pw.Font.helvetica();
@@ -78,21 +75,19 @@ class PdfInvoiceHelper {
       ),
     );
 
-    final slug = customer.name
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final slug =
+        customer.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
     final ts = now.millisecondsSinceEpoch;
     return _saveToTemp('invoice_${slug}_$ts.pdf', await doc.save());
   }
 
-  /// Generates a monthly summary PDF listing all customers and their balances.
   static Future<File> buildMonthlySummary({
     required List<CustomerWithBalance> customers,
     required int totalOutstanding,
-    required Map<String, String> settings,
+    required AppConfig? config,
     required DateTime generatedAt,
   }) async {
-    final businessName = settings['business_name'] ?? 'My Press Shop';
+    final businessName = config?.businessName ?? 'My Press Shop';
 
     final doc = pw.Document();
     final regular = pw.Font.helvetica();
@@ -103,8 +98,7 @@ class PdfInvoiceHelper {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(36),
         build: (pw.Context ctx) {
-          final withBalance =
-              customers.where((c) => c.balance > 0).length;
+          final withBalance = customers.where((c) => c.balance > 0).length;
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -117,13 +111,13 @@ class PdfInvoiceHelper {
                 regular: regular,
               ),
               pw.SizedBox(height: 16),
-              // Total outstanding
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(14),
                 decoration: pw.BoxDecoration(
                   color: _primaryLight,
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                  borderRadius:
+                      const pw.BorderRadius.all(pw.Radius.circular(8)),
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -142,8 +136,7 @@ class PdfInvoiceHelper {
               pw.SizedBox(height: 20),
               _sectionLabel('CUSTOMER BALANCES', bold: bold),
               pw.SizedBox(height: 6),
-              _summaryTable(
-                  customers: customers, bold: bold, regular: regular),
+              _summaryTable(customers: customers, bold: bold, regular: regular),
               pw.Expanded(child: pw.SizedBox()),
               _footer(
                 upiId: null,
@@ -162,8 +155,6 @@ class PdfInvoiceHelper {
     final ts = generatedAt.millisecondsSinceEpoch;
     return _saveToTemp('summary_$ts.pdf', await doc.save());
   }
-
-  // ── Layout helpers ────────────────────────────────────────────────────────
 
   static pw.Widget _headerBand({
     required String businessName,
@@ -188,8 +179,7 @@ class PdfInvoiceHelper {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(businessName,
-                  style: pw.TextStyle(
-                      font: bold, fontSize: 18, color: _white)),
+                  style: pw.TextStyle(font: bold, fontSize: 18, color: _white)),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
@@ -227,8 +217,8 @@ class PdfInvoiceHelper {
   }) {
     return pw.Row(
       children: [
-        _balanceTile('Total Billed', 'Rs ${customer.totalBilled}',
-            _primary, bold, regular),
+        _balanceTile('Total Billed', 'Rs ${customer.totalBilled}', _primary,
+            bold, regular),
         pw.SizedBox(width: 12),
         _balanceTile(
             'Paid So Far', 'Rs ${customer.totalPaid}', _green, bold, regular),
@@ -257,9 +247,7 @@ class PdfInvoiceHelper {
       child: pw.Container(
         padding: const pw.EdgeInsets.all(12),
         decoration: pw.BoxDecoration(
-          color: highlight
-              ? PdfColor.fromInt(0xFFFFF0F0)
-              : _surface,
+          color: highlight ? PdfColor.fromInt(0xFFFFF0F0) : _surface,
           border: pw.Border.all(color: _border),
           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
         ),
@@ -271,8 +259,8 @@ class PdfInvoiceHelper {
                     font: regular, fontSize: 8, color: _textMuted)),
             pw.SizedBox(height: 4),
             pw.Text(value,
-                style: pw.TextStyle(
-                    font: bold, fontSize: 13, color: valueColor)),
+                style:
+                    pw.TextStyle(font: bold, fontSize: 13, color: valueColor)),
           ],
         ),
       ),
@@ -286,62 +274,53 @@ class PdfInvoiceHelper {
   }
 
   static pw.Widget _entriesTable({
-    required List<EntryTransaction> entries,
+    required List<TransactionItem> entries,
     required pw.Font bold,
     required pw.Font regular,
   }) {
-    const headers = ['Date', 'Items', 'Amount'];
+    const headers = ['Date', 'Description', 'Amount'];
     final data = entries.isEmpty
         ? [
             ['—', 'No entries recorded', '—']
           ]
         : entries.map((e) {
-            final itemsText = e.items
-                .map((i) => '${i.quantity}× ${_truncate(i.name, 18)}')
-                .join(', ');
             return [
-              _dateFormat.format(e.entryDate),
-              _truncate(itemsText, 45),
-              'Rs ${e.totalAmount}',
+              _dateFormat.format(e.date),
+              _truncate(e.description ?? '—', 45),
+              'Rs ${e.amount}',
             ];
           }).toList();
 
     return _styledTable(
-      headers: headers,
-      data: data,
-      bold: bold,
-      regular: regular,
-      lastColRight: true,
-    );
+        headers: headers, data: data, bold: bold, regular: regular,
+        lastColRight: true);
   }
 
   static pw.Widget _paymentsTable({
-    required List<PaymentTransaction> payments,
+    required List<TransactionItem> payments,
     required pw.Font bold,
     required pw.Font regular,
   }) {
-    const headers = ['Date', 'Mode', 'Notes', 'Amount'];
+    const headers = ['Date', 'Notes', 'Amount'];
     final data = payments.isEmpty
         ? [
-            ['—', '—', 'No payments recorded', '—']
+            ['—', 'No payments recorded', '—']
           ]
         : payments.map((p) {
             return [
-              _dateFormat.format(p.paymentDate),
-              _capitalise(p.mode),
-              _truncate(p.notes ?? '', 30),
+              _dateFormat.format(p.date),
+              _truncate(p.description ?? '—', 35),
               'Rs ${p.amount}',
             ];
           }).toList();
 
     return _styledTable(
-      headers: headers,
-      data: data,
-      bold: bold,
-      regular: regular,
-      lastColRight: true,
-      lastColColor: _green,
-    );
+        headers: headers,
+        data: data,
+        bold: bold,
+        regular: regular,
+        lastColRight: true,
+        lastColColor: _green);
   }
 
   static pw.Widget _summaryTable({
@@ -355,10 +334,9 @@ class PdfInvoiceHelper {
             ['—', 'No customers', '—', '—', '—', '—']
           ]
         : customers.asMap().entries.map((entry) {
-            final i = entry.key + 1;
             final c = entry.value;
             return [
-              '$i',
+              '${entry.key + 1}',
               _truncate(c.name, 22),
               c.flatNumber,
               'Rs ${c.totalBilled}',
@@ -368,12 +346,8 @@ class PdfInvoiceHelper {
           }).toList();
 
     return _styledTable(
-      headers: headers,
-      data: data,
-      bold: bold,
-      regular: regular,
-      lastColRight: true,
-    );
+        headers: headers, data: data, bold: bold, regular: regular,
+        lastColRight: true);
   }
 
   static pw.Widget _styledTable({
@@ -395,8 +369,7 @@ class PdfInvoiceHelper {
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle:
-          pw.TextStyle(font: bold, fontSize: 8, color: _white),
+      headerStyle: pw.TextStyle(font: bold, fontSize: 8, color: _white),
       headerDecoration: pw.BoxDecoration(color: _primary),
       headerHeight: 20,
       cellStyle:
@@ -430,19 +403,13 @@ class PdfInvoiceHelper {
         pw.SizedBox(height: 4),
         for (final line in parts)
           pw.Text(line,
-              style: pw.TextStyle(
-                  font: regular, fontSize: 7, color: _textMuted)),
+              style: pw.TextStyle(font: regular, fontSize: 7, color: _textMuted)),
       ],
     );
   }
 
-  // ── Utilities ─────────────────────────────────────────────────────────────
-
   static String _truncate(String s, int max) =>
       s.length <= max ? s : '${s.substring(0, max)}…';
-
-  static String _capitalise(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
   static Future<File> _saveToTemp(String name, List<int> bytes) async {
     final dir = await getTemporaryDirectory();

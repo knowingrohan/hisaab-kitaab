@@ -45,7 +45,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: _colorScheme,
       textTheme: textTheme,
-      scaffoldBackgroundColor: AppColors.surface,
+      scaffoldBackgroundColor: AppColors.scaffoldBackground,
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.onSurface,

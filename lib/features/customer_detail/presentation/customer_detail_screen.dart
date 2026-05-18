@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
-import 'package:hisaab_kitaab/core/database/models/transaction_item.dart';
-import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/models/transaction_item.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
+import 'package:hisaab_kitaab/core/repositories/entry_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
+import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
 import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
-import 'package:hisaab_kitaab/core/providers/database_provider.dart';
-import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_timeline.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
 import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
-  final int customerId;
+  final String customerId;
 
   const CustomerDetailScreen({super.key, required this.customerId});
 
@@ -34,12 +35,8 @@ class CustomerDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditEntrySheet(BuildContext context, CustomerWithBalance c,
-      EntryTransaction entry) {
-    // Build pre-filled quantities map from entry items
-    // EntryLineItem doesn't carry itemTypeId, so we open the sheet empty;
-    // the user adjusts quantities from scratch for edits.
-    final quantities = <int, int>{};
+  void _showEditEntrySheet(
+      BuildContext context, CustomerWithBalance c, TransactionItem entry) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -50,21 +47,20 @@ class CustomerDetailScreen extends ConsumerWidget {
         customerId: c.id,
         customerName: c.name,
         flatNumber: c.flatNumber,
-        existingEntryId: entry.entryId,
-        existingDate: entry.entryDate,
-        existingQuantities: quantities,
+        existingEntryId: entry.id,
+        existingDate: entry.date,
       ),
     );
   }
 
   Future<void> _confirmDeleteEntry(
-      BuildContext context, WidgetRef ref, EntryTransaction entry) async {
+      BuildContext context, WidgetRef ref, TransactionItem entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Entry'),
         content: Text(
-            'Delete this entry of ₹${entry.totalAmount}? This cannot be undone.'),
+            'Delete this entry of ₹${entry.amount}? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -81,7 +77,7 @@ class CustomerDetailScreen extends ConsumerWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      await ref.read(databaseProvider).deleteEntry(entry.entryId);
+      await ref.read(entryRepositoryProvider).delete(entry.id);
     }
   }
 
@@ -126,8 +122,8 @@ class CustomerDetailScreen extends ConsumerWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      await ref.read(databaseProvider).deleteCustomer(c.id);
-      if (context.mounted) context.go('/home');
+      await ref.read(customerRepositoryProvider).softDelete(c.id);
+      if (context.mounted) context.go('/');
     }
   }
 
@@ -144,12 +140,12 @@ class CustomerDetailScreen extends ConsumerWidget {
       return;
     }
 
-    final settings = ref.read(settingsProvider).valueOrNull ?? {};
-    final template = settings['whatsapp_template'] ??
+    final config = ref.read(appConfigProvider).valueOrNull;
+    final template = config?.whatsappTemplate ??
         'Namaste {customer_name}! Aapka pressing ka bill {amount} ho gaya hai. '
             'Kripya payment kar dein. - {business_name}';
-    final businessName = settings['business_name'] ?? 'My Press Shop';
-    final upiId = settings['upi_id'] ?? '';
+    final businessName = config?.businessName ?? 'My Press Shop';
+    final upiId = config?.upiId ?? '';
 
     final upiLink = UpiHelper.buildLink(
       upiId: upiId,
@@ -209,7 +205,8 @@ class CustomerDetailScreen extends ConsumerWidget {
           onEdit: () => _showEditSheet(context, customer),
           onDelete: () => _confirmDelete(context, ref, customer),
           onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
-          onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
+          onDeleteEntry: (entry) =>
+              _confirmDeleteEntry(context, ref, entry),
           onExportCsv: () {
             final transactions = transactionsAsync.valueOrNull;
             if (transactions == null) {
@@ -234,8 +231,8 @@ class _DetailView extends StatelessWidget {
   final VoidCallback onSendWhatsApp;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final void Function(EntryTransaction) onEditEntry;
-  final void Function(EntryTransaction) onDeleteEntry;
+  final void Function(TransactionItem) onEditEntry;
+  final void Function(TransactionItem) onDeleteEntry;
   final VoidCallback onExportCsv;
 
   const _DetailView({
@@ -278,7 +275,7 @@ class _DetailView extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined,
                 color: AppColors.error),
-            onPressed: () {}, // M3: PDF invoice
+            onPressed: () {},
             tooltip: 'PDF Invoice',
           ),
           PopupMenuButton<String>(
@@ -308,7 +305,6 @@ class _DetailView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Customer header ──────────────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -356,7 +352,6 @@ class _DetailView extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Avatar
                 Container(
                   width: 56,
                   height: 56,
@@ -379,7 +374,6 @@ class _DetailView extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // ── Balance Card ──────────────────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -463,7 +457,6 @@ class _DetailView extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // ── Transaction Timeline ──────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -493,7 +486,6 @@ class _DetailView extends StatelessWidget {
         ),
       ),
 
-      // ── Bottom Action Bar ─────────────────────────────────────────────────
       bottomNavigationBar: _BottomActionBar(
         onAddItems: onAddItems,
         onRecordPayment: onRecordPayment,

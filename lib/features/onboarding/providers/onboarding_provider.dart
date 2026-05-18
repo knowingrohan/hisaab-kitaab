@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers/database_provider.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
 
-final onboardingDoneProvider = FutureProvider<bool>((ref) async {
-  final val = await ref.watch(databaseProvider).getSetting('onboarding_done');
-  return val == 'true';
+/// True once the owner has completed the first-run wizard (business_name is set).
+final onboardingDoneProvider = FutureProvider<bool>((ref) {
+  return ref.watch(configRepositoryProvider).isOnboardingDone();
 });
 
 class OnboardingNotifier extends StateNotifier<bool> {
@@ -12,9 +12,20 @@ class OnboardingNotifier extends StateNotifier<bool> {
 
   final Ref _ref;
 
-  Future<void> complete() async {
-    await _ref.read(databaseProvider).setSetting('onboarding_done', 'true');
+  Future<void> complete({
+    String businessName = '',
+    String ownerName = '',
+    String? phone,
+    String? upiId,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (businessName.isNotEmpty) updates['business_name'] = businessName;
+    if (ownerName.isNotEmpty) updates['owner_name'] = ownerName;
+    if (phone != null) updates['phone'] = phone;
+    if (upiId != null) updates['upi_id'] = upiId;
+    await _ref.read(configRepositoryProvider).upsert(updates);
     state = true;
+    _ref.invalidate(onboardingDoneProvider);
   }
 }
 

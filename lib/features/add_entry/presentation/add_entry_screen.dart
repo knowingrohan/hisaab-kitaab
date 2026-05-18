@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
 import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
@@ -24,6 +24,7 @@ class _AddEntryScreenState extends ConsumerState<AddEntryScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
+      useRootNavigator: true,
       builder: (_) => AddItemsSheet(
         customerId: customer.id,
         customerName: customer.name,
@@ -37,6 +38,7 @@ class _AddEntryScreenState extends ConsumerState<AddEntryScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useRootNavigator: true,
       builder: (_) => const AddCustomerSheet(),
     );
   }

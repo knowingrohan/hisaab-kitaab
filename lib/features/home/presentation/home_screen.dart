@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hisaab_kitaab/core/database/models/customer_with_balance.dart';
+
+import 'package:hisaab_kitaab/core/auth/auth_provider.dart';
+import 'package:hisaab_kitaab/core/auth/user_role.dart';
+import 'package:hisaab_kitaab/core/models/customer.dart';
+import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
 import 'package:hisaab_kitaab/features/home/presentation/widgets/customer_card.dart';
-import 'package:hisaab_kitaab/core/providers/settings_provider.dart';
 import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
-import 'package:intl/intl.dart';
-
-enum _Filter { all, overdue, settled }
+import 'package:hisaab_kitaab/shared/widgets/hk_avatar.dart';
+import 'package:hisaab_kitaab/shared/widgets/hk_chip.dart';
+import 'package:hisaab_kitaab/shared/widgets/hk_gradient_header.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,8 +22,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  _Filter _filter = _Filter.all;
   String _searchQuery = '';
+  String? _selectedSocietyId;
   final _searchCtrl = TextEditingController();
 
   @override
@@ -29,21 +32,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  List<CustomerWithBalance> _applyFilter(
-      List<CustomerWithBalance> all, int threshold) {
+  List<CustomerWithBalance> _applyFilter(List<CustomerWithBalance> all) {
     var list = all;
+    if (_selectedSocietyId != null) {
+      list = list.where((c) => c.societyId == _selectedSocietyId).toList();
+    }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((c) =>
-          c.name.toLowerCase().contains(q) ||
-          c.flatNumber.toLowerCase().contains(q) ||
-          (c.phone != null && c.phone!.toLowerCase().contains(q))).toList();
+      list = list
+          .where((c) =>
+              c.name.toLowerCase().contains(q) ||
+              c.flatNumber.toLowerCase().contains(q) ||
+              (c.phone != null && c.phone!.toLowerCase().contains(q)))
+          .toList();
     }
-    return switch (_filter) {
-      _Filter.all => list,
-      _Filter.overdue => list.where((c) => c.balance >= threshold).toList(),
-      _Filter.settled => list.where((c) => c.balance < threshold).toList(),
-    };
+    return list;
   }
 
   void _showAddCustomer() {
@@ -56,131 +59,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  bool _canAddCustomer(UserRole? role) {
+    return switch (role) {
+      OwnerRole() => true,
+      StaffRole(:final permissions) => permissions['add_customers'] == true,
+      _ => false,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final totalAsync = ref.watch(totalOutstandingProvider);
+    final config = ref.watch(appConfigProvider).valueOrNull;
     final customersAsync = ref.watch(customersWithBalanceProvider);
+    final totalOutstanding =
+        ref.watch(totalOutstandingProvider).valueOrNull ?? 0;
+    final societies = ref.watch(societiesProvider).valueOrNull ?? [];
     final alertThreshold = ref.watch(alertThresholdProvider);
+    final overdueCount = ref.watch(overdueCountProvider);
+    final role = ref.watch(currentRoleProvider);
 
-    final totalOutstanding = totalAsync.valueOrNull ?? 0;
+    final businessName = config?.businessName ?? 'Hisaab Kitaab';
+    final customerCount = customersAsync.valueOrNull?.length ?? 0;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldBackground,
       body: CustomScrollView(
         slivers: [
-          // ── App Bar ──────────────────────────────────────────────────────
-          SliverAppBar(
-            floating: true,
-            snap: true,
-            backgroundColor: AppColors.surface,
-            surfaceTintColor: Colors.transparent,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hisaab Kitaab',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                Text(
-                  DateFormat('d MMM yyyy').format(DateTime.now()),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryFixed.withAlpha(180),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '₹$totalOutstanding Pending',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: _showAddCustomer,
-                icon: const Icon(Icons.person_add_outlined),
-                tooltip: 'Add Customer',
-              ),
-            ],
-          ),
-
-          // ── Content ──────────────────────────────────────────────────────
+          // ── Gradient Header ───────────────────────────────────────────────
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
+            child: HKGradientHeader(
+              leading: HKAvatar(
+                name: businessName,
+                size: 42,
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
+              ),
+              title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Hero balance
                   Text(
-                    'TOTAL OUTSTANDING',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+                    businessName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
+                      height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '₹$totalOutstanding',
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
-                          letterSpacing: -2,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (totalOutstanding > 0)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.errorContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Action Required',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppColors.onErrorContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
+                  _RoleBadge(role: role),
+                ],
+              ),
+              trailing: [
+                if (overdueCount > 0)
+                  _OverdueBadge(count: overdueCount),
+                if (role is OwnerRole)
+                  HKHeaderIconButton(
+                    icon: Icons.settings_outlined,
+                    onPressed: () => context.push('/settings'),
+                    tooltip: 'Settings',
                   ),
-                  const SizedBox(height: 20),
+                HKHeaderIconButton(
+                  icon: Icons.logout,
+                  onPressed: () =>
+                      ref.read(authProvider.notifier).signOut(),
+                  tooltip: 'Sign out',
+                ),
+              ],
+              bottom: _HomeSummaryCard(
+                totalOutstanding: totalOutstanding,
+                customerCount: customerCount,
+              ),
+            ),
+          ),
 
-                  // Search bar
+          // ── Search + Society Chips ────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   TextField(
                     controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                    onChanged: (v) =>
+                        setState(() => _searchQuery = v.trim()),
                     decoration: InputDecoration(
-                      hintText: 'Search by name, flat, phone…',
-                      prefixIcon: const Icon(Icons.search),
+                      hintText: 'Search name, flat, phone…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(Icons.close, size: 18),
                               onPressed: () {
                                 _searchCtrl.clear();
                                 setState(() => _searchQuery = '');
@@ -188,32 +157,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor: AppColors.surfaceContainerLow,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
+                      fillColor: AppColors.cardBackground,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                          horizontal: 16, vertical: 11),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: AppColors.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: AppColors.borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1.5),
+                      ),
                     ),
                   ),
+                  if (societies.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          HKChip(
+                            label: 'All Societies',
+                            active: _selectedSocietyId == null,
+                            onTap: () =>
+                                setState(() => _selectedSocietyId = null),
+                          ),
+                          for (final s in societies) ...[
+                            const SizedBox(width: 8),
+                            HKChip(
+                              label: s.name,
+                              active: _selectedSocietyId == s.id,
+                              onTap: () =>
+                                  setState(() => _selectedSocietyId = s.id),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
-
-                  // Filter tabs
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _filterChip('All Customers', _Filter.all),
-                        const SizedBox(width: 10),
-                        _filterChip(
-                            'Overdue (≥₹$alertThreshold)', _Filter.overdue),
-                        const SizedBox(width: 10),
-                        _filterChip('Settled', _Filter.settled),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -228,19 +217,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Center(child: Text('Error: $e')),
             ),
             data: (customers) {
-              final filtered = _applyFilter(customers, alertThreshold);
+              final filtered = _applyFilter(customers);
               if (filtered.isEmpty) {
                 return SliverFillRemaining(
-                  child: _emptyState(context, customers.isEmpty),
+                  child: _EmptyState(
+                    isNoCustomers: customers.isEmpty,
+                    searchQuery: _searchQuery,
+                  ),
                 );
               }
               return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                 sliver: SliverList.separated(
                   itemCount: filtered.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) => CustomerCard(
-                    customer: filtered[index],
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (_, i) => CustomerCard(
+                    customer: filtered[i],
                     alertThreshold: alertThreshold,
                   ),
                 ),
@@ -249,93 +242,215 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-
-      // ── FAB ───────────────────────────────────────────────────────────────
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/add-entry'),
-        backgroundColor: AppColors.tertiaryFixed,
-        foregroundColor: AppColors.onTertiaryFixed,
-        icon: const Icon(Icons.add_circle),
-        label: const Text(
-          '+ Add Entry',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        elevation: 4,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-
-  Widget _filterChip(String label, _Filter filter) {
-    final selected = _filter == filter;
-    return GestureDetector(
-      onTap: () => setState(() => _filter = filter),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color:
-              selected ? AppColors.primary : AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withAlpha(51),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? AppColors.onPrimary
-                    : AppColors.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+      floatingActionButton: _canAddCustomer(role)
+          ? FloatingActionButton.extended(
+              onPressed: _showAddCustomer,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_outlined),
+              label: const Text(
+                'Add Customer',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
+            )
+          : null,
+    );
+  }
+}
+
+// ── Header sub-widgets ────────────────────────────────────────────────────────
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.role});
+  final UserRole? role;
+
+  @override
+  Widget build(BuildContext context) {
+    if (role == null) return const SizedBox.shrink();
+
+    final (label, color) = switch (role!) {
+      OwnerRole() => ('Owner', const Color(0xFFFBBF24)),
+      StaffRole() => ('Staff', const Color(0xFF6EE7B7)),
+      CustomerRole() => ('Customer', const Color(0xFF93C5FD)),
+      UnknownRole() => ('Unknown', const Color(0xFFD1D5DB)),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
         ),
       ),
     );
   }
+}
 
-  Widget _emptyState(BuildContext context, bool noCustomersAtAll) {
-    final theme = Theme.of(context);
-    final isSearching = _searchQuery.isNotEmpty;
+class _OverdueBadge extends StatelessWidget {
+  const _OverdueBadge({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/reminders'),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.warnAmber.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: AppColors.warnAmber.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                size: 14, color: AppColors.warnAmber),
+            const SizedBox(width: 4),
+            Text(
+              '$count',
+              style: const TextStyle(
+                color: AppColors.warnAmber,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeSummaryCard extends StatelessWidget {
+  const _HomeSummaryCard({
+    required this.totalOutstanding,
+    required this.customerCount,
+  });
+
+  final int totalOutstanding;
+  final int customerCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Total Outstanding',
+                  style: TextStyle(
+                    color: Color(0xFFB0C6FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '₹$totalOutstanding',
+                  style: const TextStyle(
+                    color: Color(0xFFFBBF24),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Customers',
+                style: TextStyle(
+                  color: Color(0xFFB0C6FF),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$customerCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.isNoCustomers,
+    required this.searchQuery,
+  });
+
+  final bool isNoCustomers;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSearching = searchQuery.isNotEmpty;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSearching ? Icons.search_off : Icons.people_outline,
-              size: 64,
-              color: AppColors.outlineVariant,
+              size: 56,
+              color: AppColors.textMuted,
             ),
             const SizedBox(height: 16),
             Text(
               isSearching
-                  ? 'No results for "$_searchQuery"'
-                  : noCustomersAtAll
+                  ? 'No results for "$searchQuery"'
+                  : isNoCustomers
                       ? 'No customers yet'
-                      : 'No customers in this category',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
+                      : 'No customers in this society',
+              style: const TextStyle(
+                color: AppColors.textSub,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
-            if (!isSearching && noCustomersAtAll)
-              Text(
-                'Tap the person+ icon above\nto add your first customer',
+            if (!isSearching && isNoCustomers) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Tap "Add Customer" to get started',
+                style: TextStyle(
+                    color: AppColors.textMuted, fontSize: 13),
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.outline,
-                ),
               ),
+            ],
           ],
         ),
       ),
