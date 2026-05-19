@@ -3,24 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hisaab_kitaab/core/models/customer.dart';
 import 'package:hisaab_kitaab/core/models/transaction_item.dart';
-import 'package:hisaab_kitaab/core/repositories/config_repository.dart';
-import 'package:hisaab_kitaab/core/repositories/customer_repository.dart';
 import 'package:hisaab_kitaab/core/repositories/entry_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
-import 'package:hisaab_kitaab/core/utils/upi_helper.dart';
-import 'package:hisaab_kitaab/core/utils/whatsapp_helper.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
-import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_timeline.dart';
+import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/customer_settings_sheet.dart';
+import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/reminder_sheet.dart';
+import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_table.dart';
 import 'package:hisaab_kitaab/features/customer_detail/providers/customer_detail_providers.dart';
-import 'package:hisaab_kitaab/features/home/presentation/widgets/add_customer_sheet.dart';
+import 'package:hisaab_kitaab/shared/widgets/hk_avatar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CustomerDetailScreen extends ConsumerWidget {
   final String customerId;
 
   const CustomerDetailScreen({super.key, required this.customerId});
 
-  void _showAddItemsSheet(BuildContext context, CustomerWithBalance c) {
+  void _showAddEntrySheet(BuildContext context, CustomerWithBalance c) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -68,7 +67,7 @@ class CustomerDetailScreen extends ConsumerWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
+                backgroundColor: AppColors.gaveRed,
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete'),
@@ -81,104 +80,54 @@ class CustomerDetailScreen extends ConsumerWidget {
     }
   }
 
-  void _showEditSheet(BuildContext context, CustomerWithBalance c) {
+  void _showSettingsSheet(BuildContext context, CustomerWithBalance c) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
       useRootNavigator: true,
-      builder: (_) => AddCustomerSheet(
-        editingId: c.id,
-        initialName: c.name,
-        initialFlat: c.flatNumber,
-        initialPhone: c.phone,
-        initialSocietyId: c.societyId,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: CustomerSettingsSheet(customer: c),
       ),
     );
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, CustomerWithBalance c) async {
-    final confirmed = await showDialog<bool>(
+  void _showReminderSheet(BuildContext context, CustomerWithBalance c) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Customer'),
-        content: Text(
-            'Delete ${c.name}? All entries and payments will be permanently removed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      useRootNavigator: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: ReminderSheet(customer: c),
       ),
     );
-    if (confirmed == true && context.mounted) {
-      await ref.read(customerRepositoryProvider).softDelete(c.id);
-      if (context.mounted) context.go('/');
-    }
   }
 
-  Future<void> _sendWhatsApp(
-      BuildContext context, WidgetRef ref, CustomerWithBalance customer) async {
-    final hasPhone =
-        customer.phone != null && customer.phone!.trim().isNotEmpty;
-
-    if (!hasPhone) {
+  Future<void> _callPhone(BuildContext context, String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.parse('tel:$digits');
+    if (!await launchUrl(uri) && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No phone number saved for this customer')),
-      );
-      return;
-    }
-
-    final config = ref.read(appConfigProvider).valueOrNull;
-    final template = config?.whatsappTemplate ??
-        'Namaste {customer_name}! Aapka pressing ka bill {amount} ho gaya hai. '
-            'Kripya payment kar dein. - {business_name}';
-    final businessName = config?.businessName ?? 'My Press Shop';
-    final upiId = config?.upiId ?? '';
-
-    final upiLink = UpiHelper.buildLink(
-      upiId: upiId,
-      payeeName: businessName,
-      amount: customer.balance,
-    );
-
-    final message = WhatsAppHelper.buildMessage(
-      template: template,
-      customerName: customer.name,
-      balance: customer.balance,
-      businessName: businessName,
-      upiLink: upiLink,
-    );
-
-    final ok = await WhatsAppHelper.sendReminder(
-      phone: customer.phone!,
-      message: message,
-    );
-
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open WhatsApp')),
+        const SnackBar(content: Text('Could not launch phone call')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final customerAsync =
-        ref.watch(customerWithBalanceProvider(customerId));
-    final transactionsAsync =
-        ref.watch(customerTransactionsProvider(customerId));
+    final customerAsync = ref.watch(customerWithBalanceProvider(customerId));
+    final transactionsAsync = ref.watch(customerTransactionsProvider(customerId));
 
     return customerAsync.when(
       loading: () => const Scaffold(
@@ -198,15 +147,17 @@ class CustomerDetailScreen extends ConsumerWidget {
         return _DetailView(
           customer: customer,
           transactionsAsync: transactionsAsync,
-          onAddItems: () => _showAddItemsSheet(context, customer),
+          onAddEntry: () => _showAddEntrySheet(context, customer),
           onRecordPayment: () =>
               context.push('/customer/$customerId/payment'),
-          onSendWhatsApp: () => _sendWhatsApp(context, ref, customer),
-          onEdit: () => _showEditSheet(context, customer),
-          onDelete: () => _confirmDelete(context, ref, customer),
           onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
-          onDeleteEntry: (entry) =>
-              _confirmDeleteEntry(context, ref, entry),
+          onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
+          onSettings: () => _showSettingsSheet(context, customer),
+          onReminder: () => _showReminderSheet(context, customer),
+          onCall: customer.phone != null && customer.phone!.isNotEmpty
+              ? () => _callPhone(context, customer.phone!)
+              : null,
+          onReport: () => context.push('/customer/$customerId/report'),
           onExportCsv: () {
             final transactions = transactionsAsync.valueOrNull;
             if (transactions == null) {
@@ -223,91 +174,195 @@ class CustomerDetailScreen extends ConsumerWidget {
   }
 }
 
-class _DetailView extends StatelessWidget {
-  final CustomerWithBalance customer;
-  final AsyncValue<List<TransactionItem>> transactionsAsync;
-  final VoidCallback onAddItems;
-  final VoidCallback onRecordPayment;
-  final VoidCallback onSendWhatsApp;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final void Function(TransactionItem) onEditEntry;
-  final void Function(TransactionItem) onDeleteEntry;
-  final VoidCallback onExportCsv;
+// ─────────────────────────────────────────────
+// Main layout
+// ─────────────────────────────────────────────
 
+class _DetailView extends StatelessWidget {
   const _DetailView({
     required this.customer,
     required this.transactionsAsync,
-    required this.onAddItems,
+    required this.onAddEntry,
     required this.onRecordPayment,
-    required this.onSendWhatsApp,
-    required this.onEdit,
-    required this.onDelete,
     required this.onEditEntry,
     required this.onDeleteEntry,
+    required this.onSettings,
+    required this.onReminder,
+    required this.onCall,
+    required this.onReport,
     required this.onExportCsv,
   });
 
+  final CustomerWithBalance customer;
+  final AsyncValue<List<TransactionItem>> transactionsAsync;
+  final VoidCallback onAddEntry;
+  final VoidCallback onRecordPayment;
+  final void Function(TransactionItem) onEditEntry;
+  final void Function(TransactionItem) onDeleteEntry;
+  final VoidCallback onSettings;
+  final VoidCallback onReminder;
+  final VoidCallback? onCall;
+  final VoidCallback onReport;
+  final VoidCallback onExportCsv;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        leading: BackButton(onPressed: () => context.pop()),
-        title: Text(
-          'Hisaab Kitaab',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
+      backgroundColor: AppColors.scaffoldBackground,
+      extendBodyBehindAppBar: true,
+      body: Column(
+        children: [
+          _GradientHeader(
+            customer: customer,
+            onBack: () => context.pop(),
+            onCall: onCall,
+            onSettings: onSettings,
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chat_outlined,
-                color: AppColors.whatsappGreen),
-            onPressed: onSendWhatsApp,
-            tooltip: 'Send WhatsApp Reminder',
-          ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_outlined,
-                color: AppColors.error),
-            onPressed: () {},
-            tooltip: 'PDF Invoice',
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'edit') onEdit();
-              if (value == 'delete') onDelete();
-              if (value == 'export_csv') onExportCsv();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'edit', child: Text('Edit Customer')),
-              PopupMenuItem(
-                value: 'export_csv',
-                child: Text('Export CSV'),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _BalanceCard(customer: customer),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _QuickActions(
+                      onReport: onReport,
+                      onReminder: onReminder,
+                      onExportCsv: onExportCsv,
+                      hasPhone: customer.phone != null &&
+                          customer.phone!.isNotEmpty,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'TRANSACTION HISTORY',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textMuted,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderColor),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: transactionsAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error: $e'),
+                      ),
+                      data: (transactions) => TransactionTable(
+                        transactions: transactions,
+                        onEditEntry: onEditEntry,
+                        onDeleteEntry: onDeleteEntry,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Text('Delete Customer',
-                    style: TextStyle(color: AppColors.error)),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 180),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _DualFab(
+        onAddEntry: onAddEntry,
+        onRecordPayment: onRecordPayment,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Gradient header
+// ─────────────────────────────────────────────
+
+class _GradientHeader extends StatelessWidget {
+  const _GradientHeader({
+    required this.customer,
+    required this.onBack,
+    required this.onCall,
+    required this.onSettings,
+  });
+
+  final CustomerWithBalance customer;
+  final VoidCallback onBack;
+  final VoidCallback? onCall;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primaryDark, AppColors.primaryLight],
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(8, topPadding + 8, 8, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row: back + actions
+          Row(
+            children: [
+              IconButton(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+              ),
+              const Spacer(),
+              if (onCall != null)
+                _HeaderAction(
+                  icon: Icons.phone_outlined,
+                  onPressed: onCall!,
+                  tooltip: 'Call',
+                ),
+              const SizedBox(width: 4),
+              _HeaderAction(
+                icon: Icons.settings_outlined,
+                onPressed: onSettings,
+                tooltip: 'Edit / Remove',
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+
+          // Customer info
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                HKAvatar(
+                  name: customer.name,
+                  size: 56,
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  textColor: Colors.white,
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,27 +371,40 @@ class _DetailView extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryFixed,
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               customer.flatNumber,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.onPrimaryFixedVariant,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         customer.name,
-                        style: theme.textTheme.headlineSmall?.copyWith(
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
                           fontWeight: FontWeight.w800,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        customer.societyName,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (customer.phone != null &&
@@ -344,257 +412,342 @@ class _DetailView extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           customer.phone!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.onSurfaceVariant,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.65),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      customer.initials,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppColors.onPrimaryContainer,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withAlpha(10),
-                    blurRadius: 24,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-                border: Border.all(
-                  color: AppColors.outlineVariant.withAlpha(25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'NET BALANCE',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '₹${customer.balance}',
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: customer.balance > 0
-                              ? AppColors.error
-                              : AppColors.secondary,
-                          letterSpacing: -2,
-                        ),
-                      ),
-                      if (customer.balance > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6, left: 8),
-                          child: Text(
-                            'DUE',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppColors.error,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const Divider(height: 28),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _balanceStat(
-                          context,
-                          'Total Bill',
-                          '₹${customer.totalBilled}',
-                          AppColors.onSurface,
-                        ),
-                      ),
-                      Expanded(
-                        child: _balanceStat(
-                          context,
-                          'Paid So Far',
-                          '₹${customer.totalPaid}',
-                          AppColors.primary,
-                          alignRight: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'TRANSACTION HISTORY',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            transactionsAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
-              data: (transactions) => TransactionTimeline(
-                transactions: transactions,
-                onEditEntry: onEditEntry,
-                onDeleteEntry: onDeleteEntry,
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      bottomNavigationBar: _BottomActionBar(
-        onAddItems: onAddItems,
-        onRecordPayment: onRecordPayment,
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _balanceStat(
-    BuildContext context,
-    String label,
-    String value,
-    Color valueColor, {
-    bool alignRight = false,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment:
-          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.onSurfaceVariant,
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: valueColor,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Balance card
+// ─────────────────────────────────────────────
+
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.customer});
+
+  final CustomerWithBalance customer;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDue = customer.balance > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'YOU WILL GET',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textMuted,
+              letterSpacing: 1.2,
+            ),
           ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '₹${customer.balance.abs()}',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: isDue ? AppColors.gaveRed : AppColors.gotGreen,
+                  letterSpacing: -1,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDue
+                        ? AppColors.gaveRedLight
+                        : AppColors.gotGreenLight,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isDue ? 'DUE' : 'SETTLED',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: isDue ? AppColors.gaveRed : AppColors.gotGreen,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.borderColor),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _BalanceStat(
+                  label: 'Total Gave',
+                  value: '₹${customer.totalGave}',
+                  color: AppColors.gaveRed,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 36,
+                color: AppColors.borderColor,
+              ),
+              Expanded(
+                child: _BalanceStat(
+                  label: 'Total Got',
+                  value: '₹${customer.totalGot}',
+                  color: AppColors.gotGreen,
+                  alignEnd: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BalanceStat extends StatelessWidget {
+  const _BalanceStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: alignEnd ? 16 : 0,
+        right: alignEnd ? 0 : 16,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Quick actions row
+// ─────────────────────────────────────────────
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({
+    required this.onReport,
+    required this.onReminder,
+    required this.onExportCsv,
+    required this.hasPhone,
+  });
+
+  final VoidCallback onReport;
+  final VoidCallback onReminder;
+  final VoidCallback onExportCsv;
+  final bool hasPhone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ActionButton(
+          icon: Icons.picture_as_pdf_outlined,
+          label: 'Report',
+          color: AppColors.primary,
+          onPressed: onReport,
+        ),
+        const SizedBox(width: 10),
+        _ActionButton(
+          icon: Icons.notifications_outlined,
+          label: 'Reminder',
+          color: AppColors.warnAmber,
+          onPressed: onReminder,
+        ),
+        const SizedBox(width: 10),
+        _ActionButton(
+          icon: Icons.download_outlined,
+          label: 'CSV',
+          color: AppColors.gotGreen,
+          onPressed: onExportCsv,
         ),
       ],
     );
   }
 }
 
-class _BottomActionBar extends StatelessWidget {
-  final VoidCallback onAddItems;
-  final VoidCallback onRecordPayment;
-
-  const _BottomActionBar({
-    required this.onAddItems,
-    required this.onRecordPayment,
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
   });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        16 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest.withAlpha(230),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(15),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderColor),
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Dual FAB
+// ─────────────────────────────────────────────
+
+class _DualFab extends StatelessWidget {
+  const _DualFab({required this.onAddEntry, required this.onRecordPayment});
+
+  final VoidCallback onAddEntry;
+  final VoidCallback onRecordPayment;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding, left: 16, right: 16),
       child: Row(
         children: [
           Expanded(
-            child: FilledButton.icon(
-              onPressed: onAddItems,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              icon: const Icon(Icons.add_circle_outline),
-              label: Text(
-                'Add Items',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: AppColors.onPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+            child: FloatingActionButton.extended(
+              heroTag: 'fab_gave',
+              onPressed: onAddEntry,
+              backgroundColor: AppColors.gaveRed,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+              label: const Text(
+                'YOU GAVE ₹',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: FilledButton.icon(
+            child: FloatingActionButton.extended(
+              heroTag: 'fab_got',
               onPressed: onRecordPayment,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF059669),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              icon: const Icon(Icons.payments_outlined),
-              label: Text(
-                'Record Payment',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
+              backgroundColor: AppColors.gotGreen,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              icon: const Icon(Icons.arrow_downward_rounded, size: 20),
+              label: const Text(
+                'YOU GOT ₹',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ),
           ),

@@ -248,6 +248,38 @@ On step 1 completion: insert `app_config` row with `owner_uid = auth.uid()`.
 **Repo**: `hisaab-kitaab-web/` (sibling directory) or monorepo
 **Deploy**: Vercel (zero-config, env vars in dashboard)
 
+  How it differs from the mobile app
+
+  ┌────────────────────┬─────────────────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │      Concern       │                              Mobile (Flutter)                               │                                           Web (Next.js)                                            │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Target user        │ Vendor owner, staff, and customers — daily field use                        │ Owner and super-admin (developer) — management and oversight                                       │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Device             │ Android phone, hands-on                                                     │ Desktop/laptop browser                                                                             │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Auth               │ Google OAuth via Supabase, full role routing (Owner/Staff/Customer)         │ Google OAuth via Supabase, but blocks staff and customers at middleware — only owner and           │
+  │                    │                                                                             │ super-admin can access                                                                             │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Customer role      │ Has their own read-only home screen                                         │ No access to web panel at all                                                                      │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Entry/payment      │ Primary workflow — optimized for one-handed mobile input (large ₹ taps,     │ Available on customer detail page but secondary to viewing                                         │
+  │ input              │ quick chips)                                                                │                                                                                                    │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Data tables        │ Scrollable card lists                                                       │ Full data tables with sort, filter, pagination                                                     │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Bulk actions       │ None                                                                        │ Bulk WhatsApp link generator, CSV export per society                                               │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Super-admin view   │ Doesn't exist                                                               │ /admin route shows cross-vendor stats, only for emails in DEVELOPER_EMAILS                         │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Offline /          │ Supabase Realtime streams — updates live on screen                          │ Server-side rendering + client Supabase subscriptions                                              │
+  │ real-time          │                                                                             │                                                                                                    │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ PDF reports        │ Generated in-app with pdf package, shared via share sheet                   │ Same layout, generated server-side or client-side, downloaded directly                             │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Deployment         │ APK / Play Store                                                            │ Vercel (zero-config, env vars in dashboard)                                                        │
+  └────────────────────┴─────────────────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
 ### Setup
 ```bash
 npx create-next-app@latest hisaab-kitaab-web \

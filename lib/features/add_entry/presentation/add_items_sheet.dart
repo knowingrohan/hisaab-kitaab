@@ -181,6 +181,36 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
             ),
           ),
 
+          if (!isToday) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.warnAmber, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.history, size: 14, color: AppColors.warnAmber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Past entry',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.warnAmber,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           // Amount input
@@ -193,8 +223,9 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
+              color: AppColors.gaveRedLight,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.gaveRed, width: 2),
             ),
             child: Row(
               children: [
@@ -205,7 +236,7 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.outline,
+                      color: AppColors.gaveRed,
                     ),
                   ),
                 ),
@@ -217,7 +248,7 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
                     onChanged: (_) => setState(() {}),
                     style: theme.textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: AppColors.onSurface,
+                      color: AppColors.gaveRed,
                     ),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -266,8 +297,8 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
             child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.tertiaryFixed,
-                foregroundColor: AppColors.onTertiaryFixed,
+                backgroundColor: AppColors.gaveRed,
+                foregroundColor: AppColors.onError,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -279,15 +310,15 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.onTertiaryFixed,
+                        color: AppColors.onError,
                       ),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(Icons.arrow_upward_rounded),
               label: Text(
-                isEditing ? 'Update Entry' : 'Save Entry',
+                isEditing ? 'Update Entry' : 'YOU GAVE ₹',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppColors.onTertiaryFixed,
+                  color: AppColors.onError,
                 ),
               ),
             ),

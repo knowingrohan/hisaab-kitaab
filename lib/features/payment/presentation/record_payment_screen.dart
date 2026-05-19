@@ -28,7 +28,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     super.dispose();
   }
 
-  void _setQuickAmount(int amount) {
+  void _setAmount(int amount) {
     _amountCtrl.text = '$amount';
     setState(() {});
   }
@@ -70,275 +70,263 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     final theme = Theme.of(context);
     final customerAsync =
         ref.watch(customerWithBalanceProvider(widget.customerId));
-
     final customer = customerAsync.valueOrNull;
 
+    final balance = customer?.balance ?? 0;
+    final fixedAmounts = [50, 100, 200, 500];
+    final quickAmounts = [
+      ...fixedAmounts.where((a) => a != balance),
+      if (balance > 0) balance,
+    ];
+
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        leading: BackButton(onPressed: () => context.pop()),
-        title: Text(
-          customer != null
-              ? 'Record Payment · ${customer.name}'
-              : 'Record Payment',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (customer != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(8),
-                      blurRadius: 20,
-                    ),
-                  ],
-                  border: Border.all(
-                    color: AppColors.outlineVariant.withAlpha(25),
+      backgroundColor: AppColors.scaffoldBackground,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 140,
+            pinned: true,
+            backgroundColor: AppColors.gotGreen,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => context.pop(),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0B5E2E), AppColors.gotGreen],
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      'CURRENT BALANCE',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '₹${customer.balance}',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: customer.balance > 0
-                            ? AppColors.error
-                            : AppColors.secondary,
-                        letterSpacing: -2,
-                      ),
-                    ),
-                    if (customer.balance > 0) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorContainer,
-                          borderRadius: BorderRadius.circular(20),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          customer?.name ?? 'Record Payment',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.warning_amber,
-                                size: 14, color: AppColors.error),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Outstanding',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.error,
-                                fontWeight: FontWeight.w600,
+                        const SizedBox(height: 4),
+                        if (customer != null)
+                          Row(
+                            children: [
+                              Text(
+                                'Outstanding: ',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white70,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                              Text(
+                                '₹${customer.balance}',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 28),
-            ],
-
-            Text(
-              'Payment Amount',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
             ),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 20),
-                    child: Text(
-                      '₹',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.outline,
-                      ),
-                    ),
+                  Text(
+                    'Amount',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
-                  Expanded(
-                    child: TextField(
-                      controller: _amountCtrl,
-                      keyboardType: TextInputType.number,
-                      autofocus: true,
-                      onChanged: (_) => setState(() {}),
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.onSurface,
-                      ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: '0',
-                        hintStyle: TextStyle(
-                          fontSize: 48,
-                          color: AppColors.outlineVariant,
-                          fontWeight: FontWeight.w300,
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.gotGreenLight,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: AppColors.gotGreen, width: 2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(left: 20),
+                          child: Text(
+                            '₹',
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.gotGreen,
+                            ),
+                          ),
                         ),
-                        filled: false,
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 16),
-                      ),
+                        Expanded(
+                          child: TextField(
+                            controller: _amountCtrl,
+                            keyboardType: TextInputType.number,
+                            autofocus: true,
+                            onChanged: (_) => setState(() {}),
+                            style: theme.textTheme.displaySmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.gotGreen,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: '0',
+                              hintStyle: TextStyle(
+                                fontSize: 48,
+                                color: AppColors.outlineVariant,
+                                fontWeight: FontWeight.w300,
+                              ),
+                              filled: false,
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 16),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            Wrap(
-              spacing: 10,
-              children: [50, 100, 200, 500].map((amt) {
-                return GestureDetector(
-                  onTap: () => _setQuickAmount(amt),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: quickAmounts.map((amt) {
+                      final isFullBalance = balance > 0 && amt == balance;
+                      return GestureDetector(
+                        onTap: () => _setAmount(amt),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isFullBalance
+                                ? AppColors.gotGreenLight
+                                : AppColors.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isFullBalance
+                                  ? AppColors.gotGreen
+                                  : AppColors.outlineVariant.withAlpha(51),
+                            ),
+                          ),
+                          child: Text(
+                            isFullBalance ? '₹$amt (Full)' : '₹$amt',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isFullBalance
+                                  ? AppColors.gotGreen
+                                  : AppColors.onSurface,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Payment Mode',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: AppColors.outlineVariant.withAlpha(51),
+                        color: AppColors.outlineVariant.withAlpha(38),
                       ),
                     ),
-                    child: Text(
-                      '₹$amt',
-                      style: theme.textTheme.titleSmall?.copyWith(
+                    child: Row(
+                      children: [
+                        _modeBtn('cash', Icons.payments_outlined, 'Cash'),
+                        _modeBtn(
+                            'online', Icons.phone_android_outlined, 'Online'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  RichText(
+                    text: TextSpan(
+                      text: 'Notes ',
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: AppColors.onSurface,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '(Optional)',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _notesCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: "e.g. 'Part payment' or 'Paid via UPI'",
+                      filled: true,
+                      fillColor: AppColors.surfaceContainerLow,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.gotGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        shadowColor:
+                            AppColors.gotGreen.withAlpha(76),
+                        elevation: 4,
+                      ),
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check_circle_outline, size: 22),
+                      label: Text(
+                        'YOU GOT ₹',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 28),
-
-            Text(
-              'Payment Mode',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: AppColors.outlineVariant.withAlpha(38),
-                ),
-              ),
-              child: Row(
-                children: [
-                  _modeBtn('cash', Icons.payments_outlined, 'Cash'),
-                  _modeBtn('upi', Icons.qr_code_2, 'UPI'),
-                  _modeBtn('other', Icons.more_horiz, 'Other'),
                 ],
               ),
             ),
-
-            const SizedBox(height: 28),
-
-            RichText(
-              text: TextSpan(
-                text: 'Notes ',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                children: [
-                  TextSpan(
-                    text: '(Optional)',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notesCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText:
-                    "Add details like 'Part payment' or 'Given to delivery boy'...",
-                filled: true,
-                fillColor: AppColors.surfaceContainerLow,
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  shadowColor: AppColors.primary.withAlpha(38),
-                  elevation: 4,
-                ),
-                icon: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onPrimary,
-                        ),
-                      )
-                    : const Icon(Icons.check_circle_outline, size: 22),
-                label: Text(
-                  'Mark as Paid',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: AppColors.onPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -372,7 +360,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                 icon,
                 size: 20,
                 color: selected
-                    ? AppColors.primary
+                    ? AppColors.gotGreen
                     : AppColors.onSurfaceVariant,
               ),
               const SizedBox(width: 6),
@@ -380,7 +368,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: selected
-                          ? AppColors.primary
+                          ? AppColors.gotGreen
                           : AppColors.onSurfaceVariant,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,

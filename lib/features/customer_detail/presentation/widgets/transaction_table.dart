@@ -9,11 +9,15 @@ class TransactionTable extends StatelessWidget {
     required this.transactions,
     this.onEditEntry,
     this.onDeleteEntry,
+    this.gaveLabel = 'YOU GAVE',
+    this.gotLabel = 'YOU GOT',
   });
 
   final List<TransactionItem> transactions;
   final void Function(TransactionItem)? onEditEntry;
   final void Function(TransactionItem)? onDeleteEntry;
+  final String gaveLabel;
+  final String gotLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +53,7 @@ class TransactionTable extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _TableHeader(),
+        _TableHeader(gaveLabel: gaveLabel, gotLabel: gotLabel),
         const Divider(height: 1, color: AppColors.borderColor),
         ...transactions.asMap().entries.map((e) {
           final index = e.key;
@@ -67,6 +71,11 @@ class TransactionTable extends StatelessWidget {
 }
 
 class _TableHeader extends StatelessWidget {
+  const _TableHeader({required this.gaveLabel, required this.gotLabel});
+
+  final String gaveLabel;
+  final String gotLabel;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -89,7 +98,7 @@ class _TableHeader extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              'YOU GAVE',
+              gaveLabel,
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 10,
@@ -102,7 +111,7 @@ class _TableHeader extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              'YOU GOT',
+              gotLabel,
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 10,

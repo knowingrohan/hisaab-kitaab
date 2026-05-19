@@ -82,6 +82,21 @@ class StaffRepository {
     await _client.from(SupabaseTables.staff).insert(row);
   }
 
+  Future<void> update({
+    required String id,
+    required String name,
+    required String phone,
+    required String email,
+    required Map<String, bool> permissions,
+  }) async {
+    await _client.from(SupabaseTables.staff).update({
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'permissions': permissions,
+    }).eq('id', id);
+  }
+
   Future<void> updatePermissions(String id, Map<String, bool> permissions) async {
     await _client
         .from(SupabaseTables.staff)
