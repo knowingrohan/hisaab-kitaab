@@ -1,12 +1,13 @@
 # Hisaab Kitaab
 
-A Flutter Android app for iron/laundry press vendors to manage customer accounts, log items, track outstanding balances, and send WhatsApp payment reminders. Replaces handwritten paper registers with a fast, offline-first digital ledger.
+A Flutter Android-first app for iron/laundry press vendors to manage customer accounts, log pickups, track outstanding balances, send WhatsApp payment reminders, and generate PDF reports. Replaces handwritten paper registers with a real-time digital ledger backed by Supabase.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
+- [App Features](#app-features)
+- [Roles](#roles)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
@@ -17,22 +18,99 @@ A Flutter Android app for iron/laundry press vendors to manage customer accounts
 - [Database Schema](#database-schema)
 - [Key Architecture Decisions](#key-architecture-decisions)
 - [External Service Setup](#external-service-setup)
+- [Reference](#reference)
 
 ---
 
-## Features
+## App Features
 
-- **Customer ledger** — add customers with flat number, phone, society; track individual balances
-- **Item entry** — log shirts, pants, sarees, etc. with configurable per-item rates; supports custom items
-- **Payments** — record cash/UPI/other payments; auto-updates balance
-- **WhatsApp reminders** — deep-link to WhatsApp with a templated message + UPI payment link
-- **PDF invoices** — generate per-customer invoice and full monthly summary; share via system share sheet
-- **Google Drive backup** — manual and auto daily backup of the encrypted SQLite database
-- **CSV export** — export all customers or per-customer transaction history
-- **App lock** — optional 4-digit PIN + biometric (fingerprint) protection
-- **Onboarding** — 3-screen carousel shown once on first launch
-- **Language toggle** — English / Hindi (locale persisted in settings)
-- **Crash monitoring** — Sentry integration (DSN injected at build time)
+### Authentication & Roles
+- **Google Sign-In** via Supabase Auth — no username/password
+- **Role-based routing** — Owner, Staff, and Customer each land on a different home screen after sign-in
+- **Self-registration** — new customers fill a form (name, phone, flat, society) and await owner link
+- **Unknown-role screen** — prompts the user to ask the vendor to register them
+
+### Onboarding Wizard (Owner first-run)
+- **6-step guided setup** — Welcome → Business Profile → UPI Setup → Societies → Alert Settings → All Set
+- Progress bar and back navigation across form steps
+- Live UPI payment link preview as the vendor types their VPA
+- Society chips (add/remove, max 5, Enter key support)
+- Quick-select overdue threshold (₹100 / ₹200 / ₹300 / ₹500 / ₹1000)
+- Summary card on the final step before entering the app
+
+### Home Screen (Owner & Staff)
+- Gradient header with business name, role badge, and total outstanding balance
+- **Overdue badge** (amber ⚠ N) — taps through to the overdue screen
+- **Society chip tabs** — filter the customer list by society (All + one chip per society)
+- **Customer search** — filter by name, flat number, or society in real time
+- Customer cards show flat · name, society, balance in red/green, and OVERDUE/SETTLED/DUE status badges with amber left border when overdue
+- **Add Customer** FAB (owner always; staff only if `add_customers` permission)
+
+### Customer Detail Screen
+- Gradient header with customer avatar (initials), flat · name, society, phone; one-tap call and settings icons
+- **Balance card** — "YOU WILL GET" (or SETTLED) with total gave / total got breakdown
+- **Quick action row** — PDF Report, Send Reminder, CSV Export
+- **Transaction table** — You Gave / You Got columns, newest-first, red/green left border per row; long-press for edit or delete
+- **Real-time updates** — streams from Supabase so any device update reflects instantly
+- Dual FABs: red "YOU GAVE ₹" (bottom-left) + green "YOU GOT ₹" (bottom-right)
+- **Customer settings sheet** — edit name, flat, phone, society; remove customer (soft delete `is_active = false`)
+- **Reminder sheet** — WhatsApp message preview + send button; SMS button; no-phone warning
+
+### Pickup Entry — "You Gave" (Owner & Staff)
+- Large ₹ amount input with red accent border
+- Free-text description textarea
+- Date picker defaulting to today; amber **Past entry** badge when backdated
+- Saves to `entries` via `EntryRepository` with `created_by` stamped
+
+### Payment Recording — "You Got" (Owner & Staff)
+- Green gradient header showing customer name and outstanding balance
+- Large ₹ amount input with green accent border
+- Quick-tap chips — ₹50 / ₹100 / ₹200 / ₹500 / **Full balance** (deduplicated)
+- **Cash / Online** mode selector (two clear buttons)
+- Optional note field
+- Saves to `payments` via `PaymentRepository`
+
+### PDF Report Screen
+- Date range filter (From / To pickers, clear button) — filters in memory
+- Invoice card preview: gradient business header, customer info + period badge, 3 summary boxes (Total Laundry / Total Paid / Balance Due in red/green), alternating-row transaction table, UPI payment footer when balance > 0
+- Export FAB → Share PDF or Share via WhatsApp (both via `share_plus`)
+
+### Overdue Reminders Screen
+- Amber/orange gradient header
+- 3-box summary: Overdue count, Total Due, Can Remind
+- Customers **grouped by society** with a society-level total due
+- Per-customer: WhatsApp send button (spinner → checkmark animation), call button, balance progress bar showing how far over threshold
+- "Send All" bulk WhatsApp action
+
+### Staff Management (Owner only)
+- List of staff cards — purple avatar with initials, name, phone/email, active-permission pills
+- **Edit** (pre-filled sheet) and **Remove** (soft delete) per staff member
+- **Add Staff** sheet — name, phone, email + 8-permission toggle list:
+  `view_customers`, `add_customers`, `add_entries`, `add_payments`, `edit_entries`, `delete_entries`, `send_reminders`, `export_data`
+
+### Customer Home Screen (Customer role — read-only)
+- Gradient header with customer's own name, flat, society, and logout button
+- Balance summary card — "You Owe" / "You're Settled", laundry total, paid total
+- Quick actions: Pay via WhatsApp (UPI deep-link, disabled when balance = 0), Download Report, Request SMS
+- Read-only transaction table — "YOU OWE" / "YOU PAID" columns; no add buttons
+
+### Settings Screen
+- Gradient header with vendor avatar, business name, UPI ID
+- Grouped sections: Business Profile, Reminders (overdue threshold), Manage (Staff, Societies), App (Language, App Lock), Data (Export CSV)
+- **Societies management** — add/remove societies from the database
+- **App Lock** — 4-digit PIN + biometric (fingerprint) protection; toggle in Settings; lock on app background
+
+---
+
+## Roles
+
+| Role | Home Screen | Can Add Entries/Payments | Can Manage Staff | Can See All Customers |
+|------|-------------|--------------------------|------------------|-----------------------|
+| Owner | HomeScreen | Yes | Yes | Yes |
+| Staff | HomeScreen | Permission-gated | No | Yes (filtered by permissions) |
+| Customer | CustomerHomeScreen | No | No | Own data only (RLS) |
+
+Role is resolved via `get_my_role()` Supabase RPC after every sign-in.
 
 ---
 
@@ -43,18 +121,18 @@ A Flutter Android app for iron/laundry press vendors to manage customer accounts
 | Framework | Flutter 3.x (Android-first) |
 | State management | [flutter_riverpod](https://pub.dev/packages/flutter_riverpod) ^2.6 |
 | Navigation | [go_router](https://pub.dev/packages/go_router) ^14 |
-| Database | [Drift](https://drift.simonbinder.eu) ^2.22 (SQLite ORM) |
-| Encryption | [sqlcipher_flutter_libs](https://pub.dev/packages/sqlcipher_flutter_libs) ^0.5 |
+| Backend | [supabase_flutter](https://pub.dev/packages/supabase_flutter) ^2.8 (PostgreSQL + Realtime) |
+| Auth | Supabase Auth + Google OAuth |
 | UI | Material 3 · Be Vietnam Pro ([google_fonts](https://pub.dev/packages/google_fonts)) |
 | i18n | flutter_localizations (EN + HI) |
 | PDF | [pdf](https://pub.dev/packages/pdf) ^3.11 |
 | File sharing | [share_plus](https://pub.dev/packages/share_plus) ^10 |
-| Cloud backup | google_sign_in · googleapis (Drive `appDataFolder`) |
-| Background tasks | [workmanager](https://pub.dev/packages/workmanager) ^0.5 |
 | Biometrics / PIN | [local_auth](https://pub.dev/packages/local_auth) ^2.3 |
 | Crash monitoring | [sentry_flutter](https://pub.dev/packages/sentry_flutter) ^8.14 |
 | WhatsApp / UPI | url_launcher (deep-links) |
 | CSV | [csv](https://pub.dev/packages/csv) ^6 |
+| Env vars | [flutter_dotenv](https://pub.dev/packages/flutter_dotenv) ^5 |
+| Local storage | [shared_preferences](https://pub.dev/packages/shared_preferences) ^2 (PIN + locale only) |
 
 ---
 
@@ -62,45 +140,40 @@ A Flutter Android app for iron/laundry press vendors to manage customer accounts
 
 ```
 lib/
-├── main.dart                        # Entry point — Sentry init, WorkManager init, runApp
-├── app.dart                         # Root widget — locale, onboarding overlay, PIN lock overlay
+├── main.dart                   # flutter_dotenv load + Supabase.initialize + runApp
+├── app.dart                    # HisaabKitaabApp — locale, lock, auth redirect
 │
 ├── core/
-│   ├── database/
-│   │   ├── app_database.dart        # Drift DB class + all DAO methods
-│   │   ├── app_database.g.dart      # Generated — do not edit
-│   │   ├── tables/                  # One file per Drift table
-│   │   └── models/                  # CustomerWithBalance, TransactionItem
-│   ├── providers/
-│   │   ├── database_provider.dart   # Singleton AppDatabase provider
-│   │   ├── settings_provider.dart   # Reactive settings map + alertThresholdProvider
-│   │   └── locale_provider.dart     # LocaleNotifier — persists language to DB
-│   ├── router/
-│   │   └── app_router.dart          # go_router config with StatefulShellRoute
-│   ├── theme/
-│   │   ├── app_theme.dart           # Material 3 ThemeData
-│   │   └── app_colors.dart          # Color constants from Stitch mockups
-│   └── utils/
-│       ├── whatsapp_helper.dart     # WhatsApp deep-link builder
-│       ├── upi_helper.dart          # UPI payment link builder
-│       ├── pdf_invoice_helper.dart  # Customer invoice + monthly summary PDF
-│       ├── drive_backup_helper.dart # Google Drive backup/restore singleton
-│       ├── csv_exporter.dart        # CSV export via share_plus
-│       └── backup_scheduler.dart    # WorkManager periodic backup task
+│   ├── auth/                   # HKAuthState sealed class, AuthNotifier, authProvider
+│   ├── models/                 # customer.dart, transaction_item.dart, society.dart
+│   ├── repositories/           # customer, entry, payment, config, society, staff, transaction
+│   ├── providers/              # settingsProvider (re-export), localeProvider
+│   ├── router/                 # app_router.dart — go_router + auth guard redirect
+│   ├── supabase/               # supabase_client.dart, supabase_tables.dart
+│   ├── theme/                  # app_theme.dart, app_colors.dart
+│   └── utils/                  # whatsapp_helper, upi_helper, pdf_invoice_helper, csv_exporter
 │
 ├── features/
-│   ├── home/                        # HomeScreen + CustomerCard + filter tabs
-│   ├── customer_detail/             # CustomerDetailScreen + TransactionTimeline
-│   ├── add_entry/                   # AddEntryScreen (customer picker) + AddItemsSheet (modal)
-│   ├── payment/                     # RecordPaymentScreen
-│   ├── reminders/                   # OverdueRemindersScreen
-│   ├── settings/                    # SettingsScreen + BackupNotifier
-│   ├── app_lock/                    # PinLockScreen + PinSetupSheet + AppLockNotifier
-│   └── onboarding/                  # OnboardingScreen (3-screen carousel)
+│   ├── auth/                   # LoginScreen (Google OAuth), RegistrationScreen
+│   ├── home/                   # HomeScreen, CustomerCard, society chip tabs, search
+│   ├── customer_detail/        # CustomerDetailScreen, TransactionTable, PDF report screen
+│   ├── customer_home/          # CustomerHomeScreen (read-only, customer role)
+│   ├── add_entry/              # AddItemsSheet modal (pickup entry)
+│   ├── payment/                # RecordPaymentScreen
+│   ├── reminders/              # OverdueRemindersScreen (society-grouped)
+│   ├── settings/               # SettingsScreen (societies, config, app lock, staff link)
+│   ├── staff/                  # StaffSettingsScreen, AddEditStaffSheet
+│   ├── app_lock/               # PinLockScreen, PinSetupSheet, AppLockNotifier
+│   └── onboarding/             # 6-step OnboardingScreen wizard
 │
 └── shared/
     └── widgets/
-        └── bottom_nav_shell.dart    # Glassmorphism bottom navigation shell
+        ├── hk_gradient_header.dart   # standard blue gradient header for every screen
+        ├── hk_avatar.dart            # circular avatar with initials
+        ├── hk_chip.dart              # pill filter chip (active/inactive states)
+        ├── hk_bottom_sheet.dart      # modal sheet with drag handle
+        ├── hk_fab.dart               # extended FAB (primary / gave / got variants)
+        └── balance_card.dart         # "You Will Get" summary card
 ```
 
 ---
@@ -111,8 +184,9 @@ lib/
 - Dart SDK `>=3.11.4` (bundled with Flutter)
 - Android SDK with API level 21+ target device or emulator
 - Java 17 (for Gradle)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) — `brew install supabase/tap/supabase`
 
-Verify your setup:
+Verify your Flutter setup:
 ```bash
 flutter doctor
 ```
@@ -126,18 +200,33 @@ flutter doctor
 flutter pub get
 ```
 
-**2. Run code generation** (only needed if you modify Drift tables or add `@riverpod` annotations)
-```bash
-flutter pub run build_runner build --delete-conflicting-outputs
+**2. Create your `.env` file** (gitignored — never commit this)
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 ```
 
-**3. (Optional) Configure Google Drive backup**
+**3. Apply the Supabase schema**
+```bash
+supabase db push       # push migrations to your remote project
+```
 
-Create a Google Cloud Console project, enable the Drive API, and add an OAuth 2.0 Android client ID. Place your `google-services.json` in `android/app/`. See [External Service Setup](#external-service-setup) for details.
+Or for local dev:
+```bash
+supabase start         # start local Supabase stack (Docker required)
+supabase db reset      # wipe + re-apply migrations + seed data
+```
 
-**4. (Optional) Configure Sentry crash monitoring**
+**4. Set up Google OAuth**
 
-Create a project at [sentry.io](https://sentry.io) and note your DSN. Pass it at build time — see [Building for Release](#building-for-release).
+1. [Google Cloud Console](https://console.cloud.google.com) → create a project → enable **Google Identity API**
+2. Create OAuth credentials → **Web application** type
+3. Authorised redirect URI: `https://<your-project>.supabase.co/auth/v1/callback`
+4. Copy Client ID + Secret → Supabase dashboard → Auth → Providers → Google
+
+**5. (Optional) Configure Sentry crash monitoring**
+
+Create a project at [sentry.io](https://sentry.io) and note your DSN — see [Building for Release](#building-for-release).
 
 ---
 
@@ -149,12 +238,13 @@ flutter run
 
 # Launch a specific emulator then run
 flutter emulators --launch Medium_Phone && flutter run
-
-# Run with Sentry DSN (crash reports enabled)
-flutter run --dart-define=SENTRY_DSN=https://your-key@sentry.io/your-project-id
+flutter emulators --launch Pixel_7 && flutter run
 
 # List available emulators
 flutter emulators
+
+# Run with Sentry crash reporting enabled
+flutter run --dart-define=SENTRY_DSN=https://your-key@sentry.io/your-project-id
 ```
 
 ---
@@ -168,7 +258,7 @@ flutter build apk --debug
 # Release APK (requires signing config in android/app/build.gradle)
 flutter build apk --release
 
-# Release APK with Sentry crash monitoring enabled
+# Release APK with Sentry crash monitoring
 flutter build apk --release --dart-define=SENTRY_DSN=https://your-key@sentry.io/your-project-id
 
 # App Bundle (for Play Store)
@@ -181,20 +271,6 @@ flutter build appbundle --release --dart-define=SENTRY_DSN=https://your-key@sent
 
 ## Development Guide
 
-### Code generation
-
-Drift (database ORM) and Riverpod (state management) use code generation. Re-run after:
-- Adding or modifying a Drift table in `lib/core/database/tables/`
-- Adding `@riverpod` annotations to a provider
-
-```bash
-# One-time build
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# Watch mode (auto-rebuilds on save)
-flutter pub run build_runner watch --delete-conflicting-outputs
-```
-
 ### Static analysis
 
 ```bash
@@ -204,32 +280,37 @@ flutter analyze          # must report 0 issues before committing
 ### Tests
 
 ```bash
-flutter test                                  # run all tests
-flutter test test/path/to/test.dart           # single file
+flutter test                         # run all tests
+flutter test test/path/to/test.dart  # single file
 ```
 
-### Adding a new setting key
+### Supabase local dev
 
-1. Add a seed row in `AppDatabase._seedDefaultData()` in `lib/core/database/app_database.dart`
-2. Read with `db.getSetting('key')` / `db.setSetting('key', value)`
-3. React to changes via `db.watchSettings()`
+```bash
+supabase start           # start local Supabase stack
+supabase status          # get local URLs + anon key
+supabase db reset        # wipe + re-apply migrations + seed
+supabase db push         # push migrations to remote project
+supabase migration new <name>   # create a new migration file
+```
 
 ### Adding a new feature
 
-Follow the existing pattern:
+Follow the existing feature-first pattern:
 ```
 lib/features/<feature_name>/
 ├── presentation/
-│   └── <feature>_screen.dart
+│   ├── <feature>_screen.dart
+│   └── widgets/
 └── providers/
     └── <feature>_providers.dart
 ```
 
-Register any new top-level routes in `lib/core/router/app_router.dart`.
+Register new routes in `lib/core/router/app_router.dart`.
 
 ### Modal bottom sheets
 
-Always pass `useRootNavigator: true` to `showModalBottomSheet`. The root scaffold uses `extendBody: true` for the glassmorphism nav; without `useRootNavigator: true` the sheet renders behind the nav bar.
+Always pass `useRootNavigator: true` to `showModalBottomSheet`. The root scaffold uses `extendBody: true`; without this flag the sheet renders behind the nav bar.
 
 ```dart
 showModalBottomSheet(
@@ -243,59 +324,54 @@ showModalBottomSheet(
 
 ## Database Schema
 
-The encrypted SQLite database lives at `<app_documents>/hisaab_kitaab.db` (SQLCipher, key: set in `app_database.dart`).
+All data lives in Supabase (PostgreSQL). Schema is in `supabase/migrations/`. Row-Level Security (RLS) is enabled on every table.
 
 | Table | Purpose |
 |-------|---------|
-| `societies` | Residential societies (name, address) |
-| `customers` | Customers (name, flat, phone, society FK) |
-| `item_types` | Configurable item catalog (Shirt, Pant, Saree…) with rates |
-| `entries` | Item-logging transactions (one per visit, with total amount) |
-| `entry_items` | Line items within an entry (item type FK, quantity, rate, amount) |
-| `payments` | Payment records (amount, mode: cash/upi/other, date, notes) |
-| `app_settings` | Key-value store for all app configuration |
+| `app_config` | Single-row vendor profile — business name, UPI ID, alert threshold, owner UID, onboarding flag |
+| `societies` | Residential societies served by the vendor |
+| `staff` | Staff members; `user_id` null until first sign-in (linked via `get_my_role()`) |
+| `customers` | Customers; same `user_id` link pattern as staff; `is_active` flag for soft delete |
+| `entries` | Pickup records ("You Gave"); `entry_date` is DATE for backdated support |
+| `payments` | Payment records ("You Got"); `mode` ∈ {cash, online} |
 
-**`app_settings` keys**
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `business_name` | `My Press Shop` | Vendor's business name |
-| `upi_id` | `` | UPI ID for payment links |
-| `alert_threshold` | `200` | Min balance (₹) to show in overdue list |
-| `whatsapp_template` | (see code) | WhatsApp reminder message template |
-| `language` | `en` | App language (`en` or `hi`) |
-| `app_lock_enabled` | `false` | Whether PIN lock is active |
-| `app_pin` | `` | Hashed 4-digit PIN (set when lock is enabled) |
-| `onboarding_done` | `false` | Whether onboarding carousel has been shown |
-| `auto_backup_enabled` | `false` | Whether daily Drive backup is scheduled |
+**Key design notes:**
+- All monetary amounts are `int` (whole rupees — no decimals)
+- IDs are UUID strings throughout
+- `entry_date` / `payment_date` are `date` type — the vendor records the day of pickup, not exact time
+- `created_by` on entries/payments stores `auth.uid()` of the staff/owner who made the record
 
 ---
 
 ## Key Architecture Decisions
 
-**No Riverpod code generation for providers** — all providers are written manually as `StreamProvider`, `StateNotifierProvider`, etc. This avoids a `build_runner` dependency for state management (Drift already requires it for DB).
+**Supabase real-time throughout** — all repository methods use Supabase `.stream()` returning `Stream` so UI rebuilds automatically on any database change across any device, without manual refresh.
 
-**Sealed class for transactions** — `TransactionItem` is a sealed class with `EntryTransaction` and `PaymentTransaction` subtypes, enabling exhaustive pattern matching in the transaction timeline.
+**No Riverpod code generation** — all providers are written manually as `StreamProvider`, `AsyncNotifierProvider`, etc. No `build_runner` dependency for state management.
 
-**Modal sheets vs routes** — `AddItemsSheet` and `AddCustomerSheet` are modal bottom sheets rather than routes. This matches the Stitch overlay design and allows them to be invoked from multiple entry points without router coupling.
+**Role resolved server-side** — `get_my_role()` is a Postgres RPC that returns `owner | staff | customer | unknown`. The app never trusts client-side role claims.
 
-**Reactive streams throughout** — all DAO methods return `Stream` (not `Future`) so UI rebuilds automatically on any DB change, without manual refresh calls.
+**Hierarchical navigation, no bottom nav shell** — go_router uses a back stack. No `StatefulShellRoute`. Auth redirect in `GoRouter.redirect`, refreshed via `_AuthNotifierListenable` that listens to both auth state and onboarding state.
 
-**Lock on `paused`, not `inactive`** — `AppLockNotifier.lockApp()` is called on `AppLifecycleState.paused` (app goes to background) rather than `inactive` (covers camera/notification drawer), preventing false locks.
+**App lock stored locally** — PIN hash and locale preference live in `shared_preferences` (device-local). All business data lives in Supabase.
+
+**Modal sheets vs routes** — entry and payment are modal bottom sheets invokable from multiple entry points; PDF report and staff management are full routes.
+
+**Lock on `paused`, not `inactive`** — `AppLockNotifier.lockApp()` fires on `AppLifecycleState.paused` (app goes to background) rather than `inactive`, preventing false locks from camera or notification drawer.
 
 ---
 
 ## External Service Setup
 
-### Google Drive Backup
+### Supabase (required)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a project → enable **Google Drive API**
-3. Create OAuth 2.0 credentials → **Android** client → enter your app's package name (`com.hisaabkitaab.hisaab_kitaab`) and SHA-1 fingerprint
-4. Download `google-services.json` → place at `android/app/google-services.json`
-5. The app uses Drive's `appDataFolder` (hidden, app-private) — no Drive storage permission needed
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy **Project URL** and **anon key** → add to `.env`
+3. Run `supabase db push` to apply migrations
+4. Configure Google OAuth (see Setup step 4)
+5. Update `supabase/seed.sql` line 16: replace the placeholder email with the real owner's email
 
-### Sentry Crash Monitoring
+### Sentry Crash Monitoring (optional)
 
 1. Create a project at [sentry.io](https://sentry.io) → Platform: Flutter
 2. Copy your DSN (format: `https://<key>@<org>.ingest.sentry.io/<project-id>`)
@@ -306,6 +382,8 @@ The encrypted SQLite database lives at `<app_documents>/hisaab_kitaab.db` (SQLCi
 
 ## Reference
 
-- **Full dev history & architecture notes:** `DEVLOG.md`
-- **Product requirements:** `hisaab-kitaab.prd.md`
-- **UI mockups:** `stitch/images/*.png` (screenshots) · `stitch/code/*.html` (Stitch exports)
+- **Full dev history & architecture decisions:** `DEVLOG.md`
+- **Implementation roadmap:** `TODO.md`
+- **Design tokens:** `lib/core/theme/app_colors.dart`
+- **Supabase schema:** `supabase/migrations/`
+- **Seed data:** `supabase/seed.sql`

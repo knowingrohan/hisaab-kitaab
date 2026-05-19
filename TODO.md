@@ -18,7 +18,23 @@ Design reference: `supabase/` for DB schema, design prototype at Claude Design l
 2. Create project at [supabase.com](https://supabase.com) → copy Project URL and anon key
 3. `cd hisaab-kitaab && supabase init` → generates `supabase/config.toml`
 4. `supabase db push` → applies migrations to remote project
-5. Enable Google OAuth: Supabase dashboard → Auth → Providers → Google → add Client ID + Secret
+5. **Set up Google OAuth** *(see steps below)*
+   - Go to [Google Cloud Console](https://console.cloud.google.com) → create a project (or reuse one)
+   - Enable the **Google Identity** API: APIs & Services → Enable APIs → search "Identity"
+   - Create OAuth credentials: APIs & Services → Credentials → Create Credentials → OAuth Client ID
+     - Application type: **Web application**
+     - Authorized redirect URI: `https://<your-supabase-project>.supabase.co/auth/v1/callback`
+     - (For local dev also add: `http://localhost:54321/auth/v1/callback`)
+   - Copy the **Client ID** and **Client Secret**
+   - Paste them in Supabase dashboard → Auth → Providers → Google
+   - For local dev: add to `supabase/config.toml`:
+     ```toml
+     [auth.external.google]
+     enabled = true
+     client_id = "env(GOOGLE_CLIENT_ID)"
+     secret = "env(GOOGLE_CLIENT_SECRET)"
+     ```
+   - Add `GOOGLE_CLIENT_ID=` and `GOOGLE_CLIENT_SECRET=` to your local `.env`
 6. Update `supabase/seed.sql` line 16: replace `shivaswamy@gmail.com` with the real owner email
 7. `supabase db reset` → applies migrations + seed to local dev DB
 8. Save these as env vars (never commit them):
@@ -98,7 +114,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 3 — Customer Detail Screen Redesign
+## ✅ Phase 3 — Customer Detail Screen Redesign  `DONE`
 
 **Effort**: Medium
 **Key files**: `lib/features/customer_detail/`
@@ -115,7 +131,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 4 — Pickup Entry Screen (You Gave)
+## ✅ Phase 4 — Pickup Entry Screen (You Gave)  `DONE`
 
 **Effort**: Small
 **Key files**: `lib/features/add_entry/`
@@ -129,7 +145,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 5 — Payment Screen (You Got)
+## ✅ Phase 5 — Payment Screen (You Got)  `DONE`
 
 **Effort**: Small
 **Key files**: `lib/features/payment/`
@@ -143,7 +159,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 6 — Settings + Overdue Screen Redesign
+## ✅ Phase 6 — Settings + Overdue Screen Redesign  `DONE`
 
 **Effort**: Medium
 **Key files**: `lib/features/settings/`, `lib/features/reminders/`
@@ -164,7 +180,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 7 — PDF Report Screen
+## ✅ Phase 7 — PDF Report Screen  `DONE`
 
 **Effort**: Small
 **Key files**: `lib/features/customer_detail/presentation/pdf_report_screen.dart`, `lib/core/utils/pdf_invoice_helper.dart`
@@ -181,7 +197,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 9 — Staff Management Screen
+## ✅ Phase 9 — Staff Management Screen  `DONE`
 
 **Effort**: Medium
 **Key files**: `lib/features/staff/`
@@ -195,7 +211,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 10 — Customer Home Screen (Read-only)
+## ✅ Phase 10 — Customer Home Screen (Read-only)  `DONE`
 
 **Effort**: Small
 **Key files**: `lib/features/customer_home/`
@@ -208,7 +224,7 @@ supabase status         # get local URLs + keys
 
 ---
 
-## Phase 11 — Onboarding Wizard Redesign
+## ✅ Phase 11 — Onboarding Wizard Redesign  `DONE`
 
 **Effort**: Medium
 **Key files**: `lib/features/onboarding/`
@@ -216,7 +232,7 @@ supabase status         # get local URLs + keys
 Replace current carousel with 6-step wizard:
 1. **Welcome** — hero (🧺), feature highlights, "Get Started"
 2. **Your Profile** — owner name + business name (saved to `app_config`)
-3. **UPI Setup** — UPI VPA with live payment link preview
+3. **UPI Setup (Optional)** — UPI VPA with live payment link preview (Optional)
 4. **Societies** — add/remove chips (up to 5), Enter key support; saves to `societies` table
 5. **Alert Settings** — overdue threshold (₹100/200/300/500/1000 quick-select); saves to `app_config`
 6. **All Set!** — summary card of entered config + "Go to App" button
