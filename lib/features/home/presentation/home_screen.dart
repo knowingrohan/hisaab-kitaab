@@ -32,9 +32,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  List<CustomerWithBalance> _applyFilter(List<CustomerWithBalance> all) {
+  List<CustomerWithBalance> _applyFilter(
+    List<CustomerWithBalance> all,
+    UserRole? role,
+  ) {
     var list = all;
-    if (_selectedSocietyId != null) {
+    // Staff with an assigned society always see only their society's customers.
+    final staffSocietyId =
+        role is StaffRole ? role.societyId : null;
+    if (staffSocietyId != null) {
+      list = list.where((c) => c.societyId == staffSocietyId).toList();
+    } else if (_selectedSocietyId != null) {
       list = list.where((c) => c.societyId == _selectedSocietyId).toList();
     }
     if (_searchQuery.isNotEmpty) {
@@ -78,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final overdueCount = ref.watch(overdueCountProvider);
     final role = ref.watch(currentRoleProvider);
 
-    final businessName = config?.businessName ?? 'Hisaab Kitaab';
+    final businessName = config?.businessName ?? 'Santhe Ledger';
     final customerCount = customersAsync.valueOrNull?.length ?? 0;
 
     return Scaffold(
@@ -179,28 +187,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   if (societies.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          HKChip(
-                            label: 'All Societies',
-                            active: _selectedSocietyId == null,
-                            onTap: () =>
-                                setState(() => _selectedSocietyId = null),
+                    Builder(builder: (context) {
+                      final staffSocietyId =
+                          role is StaffRole ? role.societyId : null;
+                      if (staffSocietyId != null) {
+                        // Staff with an assigned society: show only their chip,
+                        // no "All Societies" option.
+                        final assigned = societies
+                            .where((s) => s.id == staffSocietyId)
+                            .toList();
+                        if (assigned.isEmpty) return const SizedBox.shrink();
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              HKChip(
+                                label: assigned.first.name,
+                                active: true,
+                                onTap: () {},
+                              ),
+                            ],
                           ),
-                          for (final s in societies) ...[
-                            const SizedBox(width: 8),
+                        );
+                      }
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
                             HKChip(
-                              label: s.name,
-                              active: _selectedSocietyId == s.id,
+                              label: 'All Societies',
+                              active: _selectedSocietyId == null,
                               onTap: () =>
-                                  setState(() => _selectedSocietyId = s.id),
+                                  setState(() => _selectedSocietyId = null),
                             ),
+                            for (final s in societies) ...[
+                              const SizedBox(width: 8),
+                              HKChip(
+                                label: s.name,
+                                active: _selectedSocietyId == s.id,
+                                onTap: () =>
+                                    setState(() => _selectedSocietyId = s.id),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    }),
                   ],
                   const SizedBox(height: 16),
                 ],
@@ -217,7 +249,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Center(child: Text('Error: $e')),
             ),
             data: (customers) {
-              final filtered = _applyFilter(customers);
+              final filtered = _applyFilter(customers, role);
               if (filtered.isEmpty) {
                 return SliverFillRemaining(
                   child: _EmptyState(

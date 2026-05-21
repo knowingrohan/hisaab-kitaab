@@ -15,6 +15,7 @@ import 'package:hisaab_kitaab/features/payment/presentation/record_payment_scree
 import 'package:hisaab_kitaab/features/reminders/presentation/overdue_reminders_screen.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/pdf_report_screen.dart';
 import 'package:hisaab_kitaab/features/customer_home/presentation/customer_home_screen.dart';
+import 'package:hisaab_kitaab/features/settings/presentation/pending_customers_screen.dart';
 import 'package:hisaab_kitaab/features/settings/presentation/settings_screen.dart';
 import 'package:hisaab_kitaab/features/staff/presentation/staff_settings_screen.dart';
 
@@ -148,6 +149,11 @@ GoRouter buildAppRouter(ProviderContainer container) {
             path: 'staff',
             name: 'staffSettings',
             builder: (context, state) => const StaffSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'pending-customers',
+            name: 'pendingCustomers',
+            builder: (context, state) => const PendingCustomersScreen(),
           ),
         ],
       ),

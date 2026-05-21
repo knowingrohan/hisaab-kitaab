@@ -61,7 +61,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       final can = await _localAuth.canCheckBiometrics;
       if (!can) return false;
       return await _localAuth.authenticate(
-        localizedReason: 'Unlock Hisaab Kitaab',
+        localizedReason: 'Unlock Santhe Ledger',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,

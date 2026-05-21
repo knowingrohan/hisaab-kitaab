@@ -7,8 +7,9 @@ final class OwnerRole extends UserRole {
 }
 
 final class StaffRole extends UserRole {
-  const StaffRole(this.permissions);
+  const StaffRole(this.permissions, {this.societyId});
   final Map<String, bool> permissions;
+  final String? societyId;
 
   bool can(String perm) => permissions[perm] == true;
 }

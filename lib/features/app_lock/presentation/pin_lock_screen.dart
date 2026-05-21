@@ -84,10 +84,18 @@ class _PinLockScreenState extends ConsumerState<PinLockScreen> {
                   size: 56, color: Colors.white70),
               const SizedBox(height: 12),
               Text(
-                'Hisaab Kitaab',
+                'Santhe Ledger',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'by Santhe Fresh',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white38,
+                      letterSpacing: 0.5,
                     ),
               ),
               const SizedBox(height: 8),

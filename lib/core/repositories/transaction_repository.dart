@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,11 +12,15 @@ class TransactionRepository {
   /// Merges entries + payments into a single timeline sorted by date (newest first)
   /// with running balance computed oldest-to-newest.
   Stream<List<TransactionItem>> watchForCustomer(String customerId) {
-    // Supabase Realtime on entries/payments will trigger re-fetch via stream
-    return _client
+    final entriesStream = _client
         .from(SupabaseTables.entries)
         .stream(primaryKey: ['id'])
-        .eq('customer_id', customerId)
+        .eq('customer_id', customerId);
+    final paymentsStream = _client
+        .from(SupabaseTables.payments)
+        .stream(primaryKey: ['id'])
+        .eq('customer_id', customerId);
+    return StreamGroup.merge([entriesStream, paymentsStream])
         .asyncMap((_) => _buildTimeline(customerId));
   }
 
@@ -41,13 +46,13 @@ class TransactionRepository {
         .toList();
 
     // Build raw list sorted oldest-first for running balance computation
-    final raw = <({String id, TransactionType type, int amount, DateTime date, String? description})>[];
+    final raw = <({String id, TransactionType type, int amount, DateTime date, String? description, int editCount})>[];
 
     for (final e in entries) {
-      raw.add((id: e.id, type: TransactionType.gave, amount: e.totalAmount, date: e.entryDate, description: e.description));
+      raw.add((id: e.id, type: TransactionType.gave, amount: e.totalAmount, date: e.entryDate, description: e.description, editCount: e.editCount));
     }
     for (final p in payments) {
-      raw.add((id: p.id, type: TransactionType.got, amount: p.amount, date: p.paymentDate, description: p.notes));
+      raw.add((id: p.id, type: TransactionType.got, amount: p.amount, date: p.paymentDate, description: p.notes, editCount: 0));
     }
 
     raw.sort((a, b) => a.date.compareTo(b.date));
@@ -62,6 +67,7 @@ class TransactionRepository {
         date: r.date,
         description: r.description,
         runningBalance: running,
+        editCount: r.editCount,
       );
     }).toList();
 

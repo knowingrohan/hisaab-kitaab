@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hisaab_kitaab/core/auth/auth_provider.dart';
+import 'package:hisaab_kitaab/core/auth/user_role.dart';
 import 'package:hisaab_kitaab/core/models/customer.dart';
 import 'package:hisaab_kitaab/core/models/transaction_item.dart';
-import 'package:hisaab_kitaab/core/repositories/entry_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/add_entry/presentation/add_items_sheet.dart';
+import 'package:hisaab_kitaab/features/add_entry/presentation/entry_edit_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/customer_settings_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/reminder_sheet.dart';
 import 'package:hisaab_kitaab/features/customer_detail/presentation/widgets/transaction_table.dart';
@@ -34,50 +36,22 @@ class CustomerDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditEntrySheet(
-      BuildContext context, CustomerWithBalance c, TransactionItem entry) {
+  void _showTransactionSheet(
+      BuildContext context, WidgetRef ref, CustomerWithBalance c, TransactionItem entry) {
+    final role = ref.read(currentRoleProvider) ?? const UnknownRole();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
       useRootNavigator: true,
-      builder: (_) => AddItemsSheet(
-        customerId: c.id,
+      builder: (_) => EntryEditSheet(
+        entry: entry,
         customerName: c.name,
         flatNumber: c.flatNumber,
-        existingEntryId: entry.id,
-        existingDate: entry.date,
+        role: role,
       ),
     );
-  }
-
-  Future<void> _confirmDeleteEntry(
-      BuildContext context, WidgetRef ref, TransactionItem entry) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Entry'),
-        content: Text(
-            'Delete this entry of ₹${entry.amount}? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gaveRed,
-                foregroundColor: Colors.white),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      await ref.read(entryRepositoryProvider).delete(entry.id);
-    }
   }
 
   void _showSettingsSheet(BuildContext context, CustomerWithBalance c) {
@@ -150,8 +124,8 @@ class CustomerDetailScreen extends ConsumerWidget {
           onAddEntry: () => _showAddEntrySheet(context, customer),
           onRecordPayment: () =>
               context.push('/customer/$customerId/payment'),
-          onEditEntry: (entry) => _showEditEntrySheet(context, customer, entry),
-          onDeleteEntry: (entry) => _confirmDeleteEntry(context, ref, entry),
+          onTapEntry: (entry) =>
+              _showTransactionSheet(context, ref, customer, entry),
           onSettings: () => _showSettingsSheet(context, customer),
           onReminder: () => _showReminderSheet(context, customer),
           onCall: customer.phone != null && customer.phone!.isNotEmpty
@@ -184,8 +158,7 @@ class _DetailView extends StatelessWidget {
     required this.transactionsAsync,
     required this.onAddEntry,
     required this.onRecordPayment,
-    required this.onEditEntry,
-    required this.onDeleteEntry,
+    required this.onTapEntry,
     required this.onSettings,
     required this.onReminder,
     required this.onCall,
@@ -197,8 +170,7 @@ class _DetailView extends StatelessWidget {
   final AsyncValue<List<TransactionItem>> transactionsAsync;
   final VoidCallback onAddEntry;
   final VoidCallback onRecordPayment;
-  final void Function(TransactionItem) onEditEntry;
-  final void Function(TransactionItem) onDeleteEntry;
+  final void Function(TransactionItem) onTapEntry;
   final VoidCallback onSettings;
   final VoidCallback onReminder;
   final VoidCallback? onCall;
@@ -227,7 +199,10 @@ class _DetailView extends StatelessWidget {
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _BalanceCard(customer: customer),
+                    child: _BalanceCard(
+                      customer: customer,
+                      transactionsAsync: transactionsAsync,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Padding(
@@ -273,8 +248,7 @@ class _DetailView extends StatelessWidget {
                       ),
                       data: (transactions) => TransactionTable(
                         transactions: transactions,
-                        onEditEntry: onEditEntry,
-                        onDeleteEntry: onDeleteEntry,
+                        onTapEntry: onTapEntry,
                       ),
                     ),
                   ),
@@ -466,13 +440,27 @@ class _HeaderAction extends StatelessWidget {
 // ─────────────────────────────────────────────
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.customer});
+  const _BalanceCard({
+    required this.customer,
+    required this.transactionsAsync,
+  });
 
   final CustomerWithBalance customer;
+  final AsyncValue<List<TransactionItem>> transactionsAsync;
 
   @override
   Widget build(BuildContext context) {
-    final isDue = customer.balance > 0;
+    // Compute live totals from the transaction stream (which watches entries table)
+    // so values update immediately after adding entries/payments.
+    final transactions = transactionsAsync.valueOrNull;
+    final totalGave = transactions == null
+        ? customer.totalGave
+        : transactions.where((t) => t.isGave).fold(0, (s, t) => s + t.amount);
+    final totalGot = transactions == null
+        ? customer.totalGot
+        : transactions.where((t) => !t.isGave).fold(0, (s, t) => s + t.amount);
+    final balance = totalGave - totalGot;
+    final isDue = balance > 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -498,7 +486,7 @@ class _BalanceCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₹${customer.balance.abs()}',
+                '₹${balance.abs()}',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w900,
@@ -540,7 +528,7 @@ class _BalanceCard extends StatelessWidget {
               Expanded(
                 child: _BalanceStat(
                   label: 'Total Gave',
-                  value: '₹${customer.totalGave}',
+                  value: '₹$totalGave',
                   color: AppColors.gaveRed,
                 ),
               ),
@@ -552,7 +540,7 @@ class _BalanceCard extends StatelessWidget {
               Expanded(
                 child: _BalanceStat(
                   label: 'Total Got',
-                  value: '₹${customer.totalGot}',
+                  value: '₹$totalGot',
                   color: AppColors.gotGreen,
                   alignEnd: true,
                 ),

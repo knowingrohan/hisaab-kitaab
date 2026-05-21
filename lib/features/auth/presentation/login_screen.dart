@@ -47,7 +47,7 @@ class LoginScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Hisaab\nKitaab',
+                        'Welcome to\nSanthe Ledger',
                         style: theme.textTheme.displayMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -56,9 +56,17 @@ class LoginScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Simple billing for your pressing business.',
+                        'Manage customer accounts, payments and balances.',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: Colors.white.withValues(alpha: 0.75),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'by Santhe Fresh',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],

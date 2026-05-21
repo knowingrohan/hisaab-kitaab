@@ -61,7 +61,7 @@ class _HisaabKitaabAppState extends ConsumerState<HisaabKitaabApp>
     }
 
     return MaterialApp.router(
-      title: 'Hisaab Kitaab',
+      title: 'Santhe Ledger',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: _router,

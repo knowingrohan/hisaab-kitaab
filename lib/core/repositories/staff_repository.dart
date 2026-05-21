@@ -13,6 +13,7 @@ class StaffMember {
     required this.isActive,
     required this.createdAt,
     this.userId,
+    this.societyId,
   });
 
   final String id;
@@ -23,6 +24,7 @@ class StaffMember {
   final bool isActive;
   final DateTime createdAt;
   final String? userId;
+  final String? societyId;
 
   factory StaffMember.fromJson(Map<String, dynamic> json) {
     final raw = json['permissions'] as Map<String, dynamic>? ?? {};
@@ -35,6 +37,7 @@ class StaffMember {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       userId: json['user_id'] as String?,
+      societyId: json['society_id'] as String?,
     );
   }
 
@@ -49,11 +52,7 @@ class StaffRepository {
     return _client
         .from(SupabaseTables.staff)
         .stream(primaryKey: ['id'])
-        .order('name')
-        .map((rows) => rows
-            .where((r) => r['is_active'] == true)
-            .map(StaffMember.fromJson)
-            .toList());
+        .asyncMap((_) => getActive());
   }
 
   Future<List<StaffMember>> getActive() async {
@@ -72,14 +71,19 @@ class StaffRepository {
     required String phone,
     required String email,
     Map<String, bool>? permissions,
+    String? societyId,
   }) async {
     final row = <String, dynamic>{
       'name': name,
       'phone': phone,
       'email': email,
+      'is_active': true,
     };
     if (permissions != null) row['permissions'] = permissions;
-    await _client.from(SupabaseTables.staff).insert(row);
+    if (societyId != null) row['society_id'] = societyId;
+    // Upsert by email so re-adding a previously deactivated staff member
+    // reactivates their record instead of hitting the UNIQUE constraint.
+    await _client.from(SupabaseTables.staff).upsert(row, onConflict: 'email');
   }
 
   Future<void> update({
@@ -88,13 +92,21 @@ class StaffRepository {
     required String phone,
     required String email,
     required Map<String, bool> permissions,
+    String? societyId,
+    bool clearSociety = false,
   }) async {
-    await _client.from(SupabaseTables.staff).update({
+    final updates = <String, dynamic>{
       'name': name,
       'phone': phone,
       'email': email,
       'permissions': permissions,
-    }).eq('id', id);
+    };
+    if (clearSociety) {
+      updates['society_id'] = null;
+    } else if (societyId != null) {
+      updates['society_id'] = societyId;
+    }
+    await _client.from(SupabaseTables.staff).update(updates).eq('id', id);
   }
 
   Future<void> updatePermissions(String id, Map<String, bool> permissions) async {

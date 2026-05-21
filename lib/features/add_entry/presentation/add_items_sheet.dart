@@ -91,7 +91,12 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isToday = _isSameDay(_selectedDate, DateTime.now());
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final mq = MediaQuery.of(context);
+    final bottomPadding = mq.padding.bottom;
+    final keyboardHeight = mq.viewInsets.bottom;
+    final double bottomInset = keyboardHeight > 0
+        ? keyboardHeight + 8
+        : (bottomPadding > 0 ? bottomPadding + 8 : 24);
     final isEditing = widget.existingEntryId != null;
 
     return Container(
@@ -99,8 +104,9 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
         color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding > 0 ? bottomPadding + 8 : 24),
-      child: Column(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomInset),
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -324,6 +330,7 @@ class _AddItemsSheetState extends ConsumerState<AddItemsSheet> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

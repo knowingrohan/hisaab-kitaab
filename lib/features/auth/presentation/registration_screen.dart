@@ -294,10 +294,17 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             TextFormField(
               controller: _phoneCtrl,
               keyboardType: TextInputType.phone,
-              decoration: _inputDecoration(hint: 'e.g. 9876543210'),
+              decoration: _inputDecoration(hint: 'e.g. +91 98765 43210'),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Phone is required';
-                if (v.trim().length < 10) return 'Enter a valid phone number';
+                final digits = v.trim().replaceAll(RegExp(r'\D'), '');
+                final number = (digits.startsWith('91') && digits.length == 12)
+                    ? digits.substring(2)
+                    : digits;
+                if (number.length != 10) return 'Enter a valid 10-digit mobile number';
+                if (!RegExp(r'^[6-9]\d{9}$').hasMatch(number)) {
+                  return 'Enter a valid Indian mobile number';
+                }
                 return null;
               },
             ),
@@ -306,20 +313,44 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             // Society
             _FieldLabel('Society *'),
             societiesAsync.when(
-              data: (societies) => DropdownButtonFormField<String>(
-                initialValue: _selectedSocietyId,
-                decoration: _inputDecoration(hint: 'Select society'),
-                items: societies
-                    .map((s) => DropdownMenuItem(
-                          value: s.id,
-                          child: Text(s.name),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedSocietyId = v),
-                validator: (v) => v == null ? 'Please select a society' : null,
-              ),
+              data: (societies) {
+                if (societies.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.borderColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textMuted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No societies set up yet — contact your vendor.',
+                            style: TextStyle(color: AppColors.textSub, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return DropdownButtonFormField<String>(
+                  initialValue: _selectedSocietyId,
+                  decoration: _inputDecoration(hint: 'Select society'),
+                  items: societies
+                      .map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.name),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedSocietyId = v),
+                  validator: (v) => v == null ? 'Please select a society' : null,
+                );
+              },
               loading: () => const LinearProgressIndicator(),
-              error: (_, _) => const Text(
+              error: (e, st) => const Text(
                 'Could not load societies',
                 style: TextStyle(color: AppColors.error),
               ),
@@ -364,17 +395,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 child: const Text(
                   'Submit Registration',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: () =>
-                    ref.read(authProvider.notifier).signOut(),
-                child: Text(
-                  'Sign out',
-                  style: TextStyle(color: AppColors.textSub),
                 ),
               ),
             ),

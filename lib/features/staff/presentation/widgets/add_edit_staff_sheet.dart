@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:hisaab_kitaab/core/repositories/society_repository.dart';
 import 'package:hisaab_kitaab/core/repositories/staff_repository.dart';
 import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 
@@ -30,6 +31,7 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _emailCtrl;
   late Map<String, bool> _permissions;
+  String? _selectedSocietyId;
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -41,6 +43,7 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
     _nameCtrl = TextEditingController(text: e?.name ?? '');
     _phoneCtrl = TextEditingController(text: e?.phone ?? '');
     _emailCtrl = TextEditingController(text: e?.email ?? '');
+    _selectedSocietyId = e?.societyId;
     _permissions = e != null
         ? Map<String, bool>.from(e.permissions)
         : {
@@ -68,6 +71,9 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(staffRepositoryProvider);
+      final previousSocietyId = widget.existing?.societyId;
+      final clearSociety = _isEdit && previousSocietyId != null && _selectedSocietyId == null;
+
       if (_isEdit) {
         await repo.update(
           id: widget.existing!.id,
@@ -75,6 +81,8 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
           phone: _phoneCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           permissions: _permissions,
+          societyId: _selectedSocietyId,
+          clearSociety: clearSociety,
         );
       } else {
         await repo.add(
@@ -82,6 +90,7 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
           phone: _phoneCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           permissions: _permissions,
+          societyId: _selectedSocietyId,
         );
       }
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -98,6 +107,8 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final societies = ref.watch(societiesProvider).valueOrNull ?? [];
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -158,16 +169,35 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Permissions',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSub,
-                          letterSpacing: 0.5,
+                      const SizedBox(height: 14),
+                      // Society assignment
+                      _SectionLabel(label: 'Society Assignment'),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String?>(
+                        initialValue: _selectedSocietyId,
+                        decoration: _inputDecoration('Assigned Society').copyWith(
+                          hintText: 'Select society (optional)',
+                          prefixIcon: const Icon(
+                            Icons.location_city_outlined,
+                            color: AppColors.textMuted,
+                          ),
                         ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('No society assigned'),
+                          ),
+                          ...societies.map(
+                            (s) => DropdownMenuItem<String?>(
+                              value: s.id,
+                              child: Text(s.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _selectedSocietyId = v),
                       ),
+                      const SizedBox(height: 20),
+                      _SectionLabel(label: 'Permissions'),
                       const SizedBox(height: 8),
                       ..._kPermissions.map(
                         (p) => _PermissionTile(
@@ -293,7 +323,27 @@ class _AddEditStaffSheetState extends ConsumerState<AddEditStaffSheet> {
   }
 }
 
-// ── Permission Toggle Row ────────────────────────────────────────────────────
+// ── Section Label ─────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textSub,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+// ── Permission Toggle Row ─────────────────────────────────────────────────────
 
 class _PermissionTile extends StatelessWidget {
   const _PermissionTile({

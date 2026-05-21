@@ -12,6 +12,7 @@ import 'package:hisaab_kitaab/core/theme/app_colors.dart';
 import 'package:hisaab_kitaab/core/utils/csv_exporter.dart';
 import 'package:hisaab_kitaab/features/app_lock/presentation/pin_lock_screen.dart';
 import 'package:hisaab_kitaab/features/app_lock/providers/app_lock_provider.dart';
+import 'package:hisaab_kitaab/features/home/providers/home_providers.dart';
 import 'package:hisaab_kitaab/shared/widgets/hk_gradient_header.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -613,6 +614,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               subtitle: 'Add and manage staff',
                               onTap: () => context.push('/staff'),
                             ),
+                            const Divider(height: 1),
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final pendingCount = ref.watch(pendingCustomersCountProvider);
+                                return _navTile(
+                                  icon: Icons.person_add_outlined,
+                                  iconColor: AppColors.warnAmber,
+                                  label: 'Pending Approvals',
+                                  subtitle: pendingCount > 0
+                                      ? '$pendingCount customer${pendingCount == 1 ? '' : 's'} waiting for approval'
+                                      : 'Customer self-registration requests',
+                                  badge: pendingCount > 0 ? '$pendingCount' : null,
+                                  onTap: () => context.push('/pending-customers'),
+                                );
+                              },
+                            ),
                           ],
                         ],
                       );
@@ -852,6 +869,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required Color iconColor,
     required String label,
     String? subtitle,
+    String? badge,
     VoidCallback? onTap,
     bool showChevron = true,
   }) {
@@ -881,12 +899,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             )
           : null,
-      trailing: showChevron
-          ? const Icon(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badge != null)
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.warnAmber,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                badge,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          if (showChevron)
+            const Icon(
               Icons.chevron_right,
               color: AppColors.textMuted,
-            )
-          : null,
+            ),
+        ],
+      ),
       onTap: onTap,
     );
   }

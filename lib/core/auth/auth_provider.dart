@@ -94,12 +94,12 @@ class AuthNotifier extends StateNotifier<HKAuthState> {
       case 'staff':
         final data = await _client
             .from('staff')
-            .select('permissions')
+            .select('permissions, society_id')
             .eq('user_id', user.id)
             .single();
         final raw = data['permissions'] as Map<String, dynamic>;
         final perms = raw.map((k, v) => MapEntry(k, v == true));
-        return StaffRole(perms);
+        return StaffRole(perms, societyId: data['society_id'] as String?);
       case 'customer':
         final data = await _client
             .from('customers')

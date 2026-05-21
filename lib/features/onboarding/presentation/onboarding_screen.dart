@@ -213,18 +213,27 @@ class _WelcomeStep extends StatelessWidget {
                     const Text('🧺', style: TextStyle(fontSize: 72)),
                     const SizedBox(height: 16),
                     Text(
-                      'Hisaab Kitaab',
+                      'Santhe Ledger',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'by Santhe Fresh',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withAlpha(150),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Text(
-                      'Smart ledger for your laundry business',
+                      'Customer ledger and payment tracking for owners and staff',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withAlpha(200),
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),

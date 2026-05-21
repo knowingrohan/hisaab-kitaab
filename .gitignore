@@ -48,3 +48,14 @@ app.*.map.json
 
 graphify-out/cache
 .agents
+.env
+.env.local
+.env.*.local
+
+# Next.js
+web/.next/
+web/out/
+web/node_modules/
+
+# Supabase local temp
+supabase/.temp/

@@ -217,7 +217,7 @@ CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
-STABLE
+VOLATILE
 SET search_path = public
 AS $$
 DECLARE

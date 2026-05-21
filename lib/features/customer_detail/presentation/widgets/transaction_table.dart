@@ -7,15 +7,15 @@ class TransactionTable extends StatelessWidget {
   const TransactionTable({
     super.key,
     required this.transactions,
-    this.onEditEntry,
-    this.onDeleteEntry,
+    this.onTapEntry,
     this.gaveLabel = 'YOU GAVE',
     this.gotLabel = 'YOU GOT',
   });
 
   final List<TransactionItem> transactions;
-  final void Function(TransactionItem)? onEditEntry;
-  final void Function(TransactionItem)? onDeleteEntry;
+
+  /// Called when any "gave" (entry) row is tapped. Opens view/edit sheet.
+  final void Function(TransactionItem)? onTapEntry;
   final String gaveLabel;
   final String gotLabel;
 
@@ -61,8 +61,7 @@ class TransactionTable extends StatelessWidget {
           return _TransactionRow(
             item: item,
             isEven: index.isEven,
-            onEdit: item.isGave ? onEditEntry : null,
-            onDelete: item.isGave ? onDeleteEntry : null,
+            onTap: item.isGave ? onTapEntry : null,
           );
         }),
       ],
@@ -131,14 +130,12 @@ class _TransactionRow extends StatelessWidget {
   const _TransactionRow({
     required this.item,
     required this.isEven,
-    this.onEdit,
-    this.onDelete,
+    this.onTap,
   });
 
   final TransactionItem item;
   final bool isEven;
-  final void Function(TransactionItem)? onEdit;
-  final void Function(TransactionItem)? onDelete;
+  final void Function(TransactionItem)? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -146,12 +143,11 @@ class _TransactionRow extends StatelessWidget {
     final accentColor = isGave ? AppColors.gaveRed : AppColors.gotGreen;
 
     return InkWell(
-      onLongPress: (onEdit != null || onDelete != null)
-          ? () => _showMenu(context)
-          : null,
+      onTap: onTap != null ? () => onTap!(item) : null,
       child: Container(
         decoration: BoxDecoration(
-          color: isEven ? AppColors.cardBackground : AppColors.scaffoldBackground,
+          color:
+              isEven ? AppColors.cardBackground : AppColors.scaffoldBackground,
           border: Border(
             left: BorderSide(color: accentColor, width: 3),
           ),
@@ -173,6 +169,37 @@ class _TransactionRow extends StatelessWidget {
                       color: AppColors.textPrimary,
                     ),
                   ),
+                  // EDITED badge
+                  if (isGave && item.editCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: AppColors.warnAmber, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit_outlined,
+                              size: 10, color: AppColors.warnAmber),
+                          const SizedBox(width: 3),
+                          Text(
+                            'EDITED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.warnAmber,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (item.description != null &&
                       item.description!.isNotEmpty) ...[
                     const SizedBox(height: 2),
@@ -188,7 +215,7 @@ class _TransactionRow extends StatelessWidget {
                   ],
                   const SizedBox(height: 3),
                   Text(
-                    'Balance: ₹${item.runningBalance}',
+                    'Bal. ₹${item.runningBalance}',
                     style: TextStyle(
                       fontSize: 11,
                       color: item.runningBalance > 0
@@ -203,75 +230,27 @@ class _TransactionRow extends StatelessWidget {
             SizedBox(
               width: 80,
               child: Text(
-                isGave ? '₹${item.amount}' : '',
+                isGave ? '₹${item.amount}' : '–',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.gaveRed,
+                  color: isGave ? AppColors.gaveRed : AppColors.textMuted,
                 ),
               ),
             ),
             SizedBox(
               width: 80,
               child: Text(
-                isGave ? '' : '₹${item.amount}',
+                isGave ? '–' : '₹${item.amount}',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.gotGreen,
+                  color: isGave ? AppColors.textMuted : AppColors.gotGreen,
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showMenu(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: AppColors.cardBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.borderColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            if (onEdit != null)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit Entry'),
-                onTap: () {
-                  Navigator.of(context, rootNavigator: true).pop();
-                  onEdit!(item);
-                },
-              ),
-            if (onDelete != null)
-              ListTile(
-                leading:
-                    const Icon(Icons.delete_outline, color: AppColors.gaveRed),
-                title: const Text('Delete Entry',
-                    style: TextStyle(color: AppColors.gaveRed)),
-                onTap: () {
-                  Navigator.of(context, rootNavigator: true).pop();
-                  onDelete!(item);
-                },
-              ),
-            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -280,11 +259,13 @@ class _TransactionRow extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    if (_isSameDay(date, now)) return 'Today, ${DateFormat('d MMM').format(date)}';
+    if (_isSameDay(date, now)) {
+      return 'Today, ${DateFormat('d MMM').format(date)}';
+    }
     if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday, ${DateFormat('d MMM').format(date)}';
     }
-    return DateFormat('d MMM yyyy').format(date);
+    return DateFormat('d MMM yy • hh:mm a').format(date);
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>

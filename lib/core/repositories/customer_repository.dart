@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,53 +10,63 @@ class CustomerRepository {
   final SupabaseClient _client;
 
   Stream<List<CustomerWithBalance>> watchAllWithBalance() {
-    return _client
+    final customersStream =
+        _client.from(SupabaseTables.customers).stream(primaryKey: ['id']);
+    final entriesStream =
+        _client.from(SupabaseTables.entries).stream(primaryKey: ['id']);
+    final paymentsStream =
+        _client.from(SupabaseTables.payments).stream(primaryKey: ['id']);
+    return StreamGroup.merge([customersStream, entriesStream, paymentsStream])
+        .asyncMap((_) => _computeAllBalances());
+  }
+
+  Future<List<CustomerWithBalance>> _computeAllBalances() async {
+    final rows = await _client
         .from(SupabaseTables.customers)
-        .stream(primaryKey: ['id'])
-        .order('name')
-        .asyncMap((rows) async {
-          final customers = rows
-              .where((r) => r['is_active'] == true)
-              .map((r) => Customer.fromJson({...r, 'societies': null}))
-              .toList();
+        .select()
+        .order('name');
 
-          if (customers.isEmpty) return <CustomerWithBalance>[];
+    final customers = (rows as List)
+        .where((r) => r['is_active'] == true)
+        .map((r) => Customer.fromJson({...r as Map<String, dynamic>, 'societies': null}))
+        .toList();
 
-          final ids = customers.map((c) => c.id).toList();
+    if (customers.isEmpty) return <CustomerWithBalance>[];
 
-          final entries = await _client
-              .from(SupabaseTables.entries)
-              .select('customer_id, total_amount')
-              .inFilter('customer_id', ids);
+    final ids = customers.map((c) => c.id).toList();
 
-          final payments = await _client
-              .from(SupabaseTables.payments)
-              .select('customer_id, amount')
-              .inFilter('customer_id', ids);
+    final entries = await _client
+        .from(SupabaseTables.entries)
+        .select('customer_id, total_amount')
+        .inFilter('customer_id', ids);
 
-          final entryTotals = <String, int>{};
-          for (final e in entries as List) {
-            final id = e['customer_id'] as String;
-            entryTotals[id] = (entryTotals[id] ?? 0) + (e['total_amount'] as int);
-          }
+    final payments = await _client
+        .from(SupabaseTables.payments)
+        .select('customer_id, amount')
+        .inFilter('customer_id', ids);
 
-          final paymentTotals = <String, int>{};
-          for (final p in payments as List) {
-            final id = p['customer_id'] as String;
-            paymentTotals[id] = (paymentTotals[id] ?? 0) + (p['amount'] as int);
-          }
+    final entryTotals = <String, int>{};
+    for (final e in entries as List) {
+      final id = e['customer_id'] as String;
+      entryTotals[id] = (entryTotals[id] ?? 0) + (e['total_amount'] as int);
+    }
 
-          return customers.map((c) {
-            final gave = entryTotals[c.id] ?? 0;
-            final got = paymentTotals[c.id] ?? 0;
-            return CustomerWithBalance(
-              customer: c,
-              balance: gave - got,
-              totalGave: gave,
-              totalGot: got,
-            );
-          }).toList();
-        });
+    final paymentTotals = <String, int>{};
+    for (final p in payments as List) {
+      final id = p['customer_id'] as String;
+      paymentTotals[id] = (paymentTotals[id] ?? 0) + (p['amount'] as int);
+    }
+
+    return customers.map((c) {
+      final gave = entryTotals[c.id] ?? 0;
+      final got = paymentTotals[c.id] ?? 0;
+      return CustomerWithBalance(
+        customer: c,
+        balance: gave - got,
+        totalGave: gave,
+        totalGot: got,
+      );
+    }).toList();
   }
 
   Stream<int> watchTotalOutstanding() {
@@ -95,14 +106,20 @@ class CustomerRepository {
   }
 
   Stream<CustomerWithBalance?> watchWithBalance(String id) {
-    return _client
+    final customerStream = _client
         .from(SupabaseTables.customers)
         .stream(primaryKey: ['id'])
-        .eq('id', id)
-        .asyncMap((rows) async {
-          if (rows.isEmpty) return null;
-          return getWithBalance(id);
-        });
+        .eq('id', id);
+    final entriesStream = _client
+        .from(SupabaseTables.entries)
+        .stream(primaryKey: ['id'])
+        .eq('customer_id', id);
+    final paymentsStream = _client
+        .from(SupabaseTables.payments)
+        .stream(primaryKey: ['id'])
+        .eq('customer_id', id);
+    return StreamGroup.merge([customerStream, entriesStream, paymentsStream])
+        .asyncMap((_) => getWithBalance(id));
   }
 
   Future<void> add({
@@ -178,6 +195,32 @@ class CustomerRepository {
       'user_id': user.id,
       'is_active': false,
     });
+  }
+
+  Stream<List<Customer>> watchPending() {
+    return _client
+        .from(SupabaseTables.customers)
+        .stream(primaryKey: ['id'])
+        .asyncMap((_) => _fetchPending());
+  }
+
+  Future<List<Customer>> _fetchPending() async {
+    final rows = await _client
+        .from(SupabaseTables.customers)
+        .select()
+        .eq('is_active', false)
+        .not('user_id', 'is', null)
+        .order('created_at', ascending: false);
+    return (rows as List)
+        .map((r) => Customer.fromJson({...r as Map<String, dynamic>, 'societies': null}))
+        .toList();
+  }
+
+  Future<void> activate(String id) async {
+    await _client
+        .from(SupabaseTables.customers)
+        .update({'is_active': true})
+        .eq('id', id);
   }
 }
 

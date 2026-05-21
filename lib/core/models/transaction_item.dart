@@ -10,6 +10,7 @@ class TransactionItem {
     required this.date,
     this.description,
     required this.runningBalance,
+    this.editCount = 0,
   });
 
   final String id;
@@ -23,6 +24,9 @@ class TransactionItem {
   /// Running balance after this transaction (positive = customer owes).
   final int runningBalance;
 
+  /// Number of times this entry has been edited (always 0 for payments).
+  final int editCount;
+
   bool get isGave => type == TransactionType.gave;
 }
 
@@ -35,6 +39,7 @@ class AppEntry {
     this.description,
     required this.createdAt,
     required this.createdBy,
+    this.editCount = 0,
   });
 
   final String id;
@@ -44,6 +49,7 @@ class AppEntry {
   final String? description;
   final DateTime createdAt;
   final String createdBy;
+  final int editCount;
 
   factory AppEntry.fromJson(Map<String, dynamic> json) => AppEntry(
         id: json['id'] as String,
@@ -53,6 +59,7 @@ class AppEntry {
         description: json['description'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
         createdBy: json['created_by'] as String,
+        editCount: (json['edit_count'] as int?) ?? 0,
       );
 }
 

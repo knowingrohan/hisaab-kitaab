@@ -5,6 +5,7 @@ abstract final class SupabaseTables {
   static const customers = 'customers';
   static const entries = 'entries';
   static const payments = 'payments';
+  static const entryEdits = 'entry_edits';
 }
 
 abstract final class SupabaseRpc {

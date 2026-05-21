@@ -9,6 +9,7 @@ class AddCustomerSheet extends ConsumerStatefulWidget {
   final String? initialName;
   final String? initialFlat;
   final String? initialPhone;
+  final String? initialEmail;
   final String? initialSocietyId;
 
   const AddCustomerSheet({
@@ -17,6 +18,7 @@ class AddCustomerSheet extends ConsumerStatefulWidget {
     this.initialName,
     this.initialFlat,
     this.initialPhone,
+    this.initialEmail,
     this.initialSocietyId,
   });
 
@@ -29,6 +31,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   final _nameCtrl = TextEditingController();
   final _flatCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   String? _selectedSocietyId;
   bool _saving = false;
 
@@ -38,6 +41,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
     if (widget.initialName != null) _nameCtrl.text = widget.initialName!;
     if (widget.initialFlat != null) _flatCtrl.text = widget.initialFlat!;
     if (widget.initialPhone != null) _phoneCtrl.text = widget.initialPhone!;
+    if (widget.initialEmail != null) _emailCtrl.text = widget.initialEmail!;
     _selectedSocietyId = widget.initialSocietyId;
   }
 
@@ -46,6 +50,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
     _nameCtrl.dispose();
     _flatCtrl.dispose();
     _phoneCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -60,6 +65,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
     setState(() => _saving = true);
     final repo = ref.read(customerRepositoryProvider);
     try {
+      final email = _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim();
       if (widget.editingId != null) {
         await repo.update(
           id: widget.editingId!,
@@ -67,6 +73,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
           flatNumber: _flatCtrl.text.trim(),
           societyId: _selectedSocietyId,
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          email: email,
         );
       } else {
         await repo.add(
@@ -74,6 +81,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
           flatNumber: _flatCtrl.text.trim(),
           societyId: _selectedSocietyId!,
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          email: email,
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -165,6 +173,21 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                       hintText: 'e.g. 98765 43210',
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email (Optional)',
+                      hintText: 'e.g. customer@gmail.com',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      if (!v.contains('@')) return 'Invalid email';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String?>(

@@ -73,6 +73,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     final customer = customerAsync.valueOrNull;
 
     final balance = customer?.balance ?? 0;
+    final enteredAmount = int.tryParse(_amountCtrl.text.trim()) ?? 0;
     final fixedAmounts = [50, 100, 200, 500];
     final quickAmounts = [
       ...fixedAmounts.where((a) => a != balance),
@@ -206,18 +207,19 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                     runSpacing: 8,
                     children: quickAmounts.map((amt) {
                       final isFullBalance = balance > 0 && amt == balance;
+                      final isSelected = enteredAmount > 0 && enteredAmount == amt;
                       return GestureDetector(
                         onTap: () => _setAmount(amt),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isFullBalance
+                            color: isSelected
                                 ? AppColors.gotGreenLight
                                 : AppColors.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isFullBalance
+                              color: isSelected
                                   ? AppColors.gotGreen
                                   : AppColors.outlineVariant.withAlpha(51),
                             ),
@@ -226,7 +228,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                             isFullBalance ? '₹$amt (Full)' : '₹$amt',
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: isFullBalance
+                              color: isSelected
                                   ? AppColors.gotGreen
                                   : AppColors.onSurface,
                             ),
@@ -235,6 +237,45 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                       );
                     }).toList(),
                   ),
+                  if (enteredAmount > 0 && balance > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: enteredAmount >= balance
+                            ? AppColors.gotGreenLight
+                            : AppColors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            enteredAmount >= balance
+                                ? Icons.check_circle_outline
+                                : Icons.info_outline,
+                            size: 16,
+                            color: enteredAmount >= balance
+                                ? AppColors.gotGreen
+                                : AppColors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            enteredAmount >= balance
+                                ? 'Full outstanding cleared'
+                                : 'Remaining after payment: ₹${balance - enteredAmount}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: enteredAmount >= balance
+                                  ? AppColors.gotGreen
+                                  : AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   Text(
                     'Payment Mode',
@@ -314,7 +355,9 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                             )
                           : const Icon(Icons.check_circle_outline, size: 22),
                       label: Text(
-                        'YOU GOT ₹',
+                        enteredAmount > 0
+                            ? 'YOU GOT ₹$enteredAmount'
+                            : 'YOU GOT ₹',
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
