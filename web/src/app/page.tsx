@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
@@ -19,7 +21,7 @@ function Nav() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-green-deep/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2 group">
-          <LeafIcon className="w-8 h-8 text-orange-light group-hover:scale-110 transition-transform" />
+          <Image src="/logo.png" alt="Santhe Fresh" width={36} height={36} className="rounded-md group-hover:scale-110 transition-transform" />
           <span className="text-white font-extrabold text-xl tracking-tight">
             Santhe <span className="text-orange-light">Fresh</span>
           </span>
@@ -418,7 +420,7 @@ function Footer() {
         <div className="grid md:grid-cols-3 gap-12 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <LeafIcon className="w-7 h-7 text-orange-light" />
+              <Image src="/logo.png" alt="Santhe Fresh" width={28} height={28} className="rounded-md" />
               <span className="text-white font-extrabold text-xl">
                 Santhe <span className="text-orange-light">Fresh</span>
               </span>
@@ -432,16 +434,18 @@ function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4">Find Us</h4>
             <p className="text-white/60 text-sm leading-relaxed">
-              📍 Klassik Landmark, Bengaluru
+              📍 2nd Floor, Sri Laxmi Venkateswara Nilaya, 06,
               <br />
-              Serving local societies daily
+              Sarjapur Main Rd, next to TNT Emerald,
+              <br />
+              Kaikondrahalli, Bengaluru, Karnataka 560035
             </p>
           </div>
 
           <div>
             <h4 className="text-white font-bold mb-4">Get in Touch</h4>
             <a
-              href="https://wa.me/919876543210"
+              href="https://wa.me/919066093081"
               className="inline-flex items-center gap-3 bg-[#25D366] hover:bg-[#20bf5b] text-white font-bold px-6 py-3 rounded-full transition-colors text-sm shadow-lg"
             >
               <WhatsAppIcon className="w-5 h-5" />
@@ -465,29 +469,6 @@ function Footer() {
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function LeafIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M16 4C10 4 5 9 5 16c0 4 1.5 7.5 4 10 2-4 6-7 11-8.5C18.5 22 16 26 14 29c1 .5 2 1 3 1 7 0 11-5 11-14 0-7-5-12-12-12z"
-        fill="currentColor"
-        opacity="0.9"
-      />
-      <path
-        d="M14 29c1.5-3 3.5-6 6-8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity="0.5"
-      />
-    </svg>
-  );
-}
 
 function TomatoSvg({ size }: { size: number }) {
   return (
