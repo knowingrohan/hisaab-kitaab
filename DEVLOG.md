@@ -72,6 +72,19 @@ Config stored in `app_config` (single row, id=1). PIN and locale stored locally 
 | Phase 4 — Pickup Entry Screen (You Gave) | ✅ Complete | 2026-05-19 |
 | Phase 5 — Payment Screen (You Got) | ✅ Complete | 2026-05-19 |
 | Phase 6 — Settings + Overdue Screen Redesign | ✅ Complete | 2026-05-19 |
+| Phase 14.0 — Next.js web scaffold + Santhe Fresh landing page | ✅ Complete | 2026-05-21 |
+
+**Session 2026-05-21 (2) — Phase 14.0 Santhe Fresh Landing Page + Git security fix:**
+- **Landing page plan**: Designed Santhe Fresh brand landing page — fresh & natural visual direction (deep green `#1B5E20`, warm orange `#E65100`, cream), dual audience (consumers + business owners), informational showcase with brief Santhe Ledger callout. Plan refined via Ultraplan and implemented by remote Claude Code session.
+- **Web scaffold created**: `web/` directory added with Next.js project (`feat/phase-14-0-web-setup` branch). Phase 14.0 commit: `6d049f3`.
+- **Git security fix**: `568a3f8` accidentally committed `.env` (Google OAuth Client ID + Secret). GitHub secret scanning blocked the push. Fixed by:
+  - Soft-reset the bad commit, re-staged all changes excluding `.env`
+  - Added `.env`, `web/.next/`, `web/node_modules/`, `supabase/.temp/` to `.gitignore`
+  - Recommitted clean as `203f996` (no secrets, no build artifacts)
+  - Dropped duplicate bad commit from feature branch via `git rebase --onto`
+  - Pushed both `main` and `feat/phase-14-0-web-setup` cleanly
+- **Action required**: Rotate Google OAuth Client ID + Secret in Google Cloud Console (credentials were in local commit history before fix).
+- Branch: `feat/phase-14-0-web-setup` → PR ready at GitHub.
 
 **Session 2026-05-21 — Rebrand to Santhe Ledger:**
 - App display name changed to **"Santhe Ledger"** (brand owner: Santhe Fresh). Internal package name (`hisaab_kitaab`) and OAuth scheme (`io.supabase.hisaabkitaab`) unchanged.
